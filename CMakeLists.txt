@@ -3,4 +3,25 @@ project(Celestial_Siege)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(Celestial_Siege main.cpp)
+# Include directories
+include_directories(include)
+
+# Source files
+set(SOURCES
+    main.cpp
+    src/GameObject.cpp
+    src/GameWorld.cpp
+)
+
+# Header files
+set(HEADERS
+    include/Vec2d.h
+    include/GameObject.h
+    include/Planet.h
+    include/Enemy.h
+    include/Tower.h
+    include/Projectile.h
+    include/GameWorld.h
+)
+
+add_executable(Celestial_Siege ${SOURCES} ${HEADERS})
