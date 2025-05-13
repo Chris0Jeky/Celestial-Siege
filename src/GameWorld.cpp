@@ -1,5 +1,6 @@
 #include "GameWorld.h"
 #include <iostream>
+#include "../libs/nlohmann/json.hpp"
 
 void GameWorld::init() {
     // Create some initial planets
@@ -150,4 +151,21 @@ void GameWorld::spawnEnemy(Vec2d position) {
 
 void GameWorld::spawnProjectile(Vec2d from, Vec2d to, double damage) {
     m_objects.push_back(std::make_unique<Projectile>(from, to, damage));
+}
+
+json GameWorld::getStateAsJson() const {
+    json state;
+    state["objects"] = json::array();
+    
+    for (const auto& obj : m_objects) {
+        if (obj->alive) {
+            state["objects"].push_back(obj->toJson());
+        }
+    }
+    
+    state["playerHealth"] = m_playerHealth;
+    state["playerResources"] = m_playerResources;
+    state["currentWave"] = m_currentWave;
+    
+    return state;
 }

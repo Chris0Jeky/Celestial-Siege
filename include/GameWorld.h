@@ -39,4 +39,6 @@ public:
     const std::vector<std::unique_ptr<GameObject>>& getObjects() const { return m_objects; }
     int getPlayerHealth() const { return m_playerHealth; }
     int getPlayerResources() const { return m_playerResources; }
+    
+    json getStateAsJson() const;
 };

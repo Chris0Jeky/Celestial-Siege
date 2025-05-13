@@ -14,4 +14,11 @@ public:
     void render() const override {
         std::cout << "Planet at (" << position.x << ", " << position.y << ") with radius " << radius << std::endl;
     }
+    
+    json toJson() const override {
+        json j = GameObject::toJson();
+        j["radius"] = radius;
+        j["owner"] = owner;
+        return j;
+    }
 };

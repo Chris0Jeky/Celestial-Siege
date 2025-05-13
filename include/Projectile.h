@@ -30,4 +30,11 @@ public:
     void render() const override {
         std::cout << "Projectile at (" << position.x << ", " << position.y << ")" << std::endl;
     }
+    
+    json toJson() const override {
+        json j = GameObject::toJson();
+        j["damage"] = damage;
+        j["speed"] = speed;
+        return j;
+    }
 };

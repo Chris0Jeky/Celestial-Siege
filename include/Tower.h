@@ -32,4 +32,12 @@ public:
     void render() const override {
         std::cout << "Tower at (" << position.x << ", " << position.y << ") with range " << range << std::endl;
     }
+    
+    json toJson() const override {
+        json j = GameObject::toJson();
+        j["range"] = range;
+        j["damage"] = damage;
+        j["fireRate"] = fireRate;
+        return j;
+    }
 };

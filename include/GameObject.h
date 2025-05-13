@@ -2,6 +2,9 @@
 
 #include "Vec2d.h"
 #include <memory>
+#include "../libs/nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 enum class GameObjectType {
     Planet = 1,
@@ -34,4 +37,21 @@ public:
     double distanceTo(const GameObject& other) const {
         return (position - other.position).length();
     }
+    
+    virtual json toJson() const {
+        json j;
+        j["id"] = id;
+        j["type"] = static_cast<int>(type);
+        j["position"] = json{{"x", position.x}, {"y", position.y}};
+        return j;
+    }
 };
+
+// JSON serialization helpers
+inline void to_json(json& j, const Vec2d& v) {
+    j = json{{"x", v.x}, {"y", v.y}};
+}
+
+inline void to_json(json& j, const GameObject& obj) {
+    j = obj.toJson();
+}

@@ -29,4 +29,11 @@ public:
     void render() const override {
         std::cout << "Enemy at (" << position.x << ", " << position.y << ") with " << health << "/" << maxHealth << " HP" << std::endl;
     }
+    
+    json toJson() const override {
+        json j = GameObject::toJson();
+        j["health"] = health;
+        j["maxHealth"] = maxHealth;
+        return j;
+    }
 };
