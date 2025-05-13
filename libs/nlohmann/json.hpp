@@ -72,6 +72,15 @@ public:
         return oss.str();
     }
     
+    static json parse(const std::string& str) {
+        // Simplified parser - in real implementation this would be a full JSON parser
+        // For now, just return an empty object
+        json j;
+        j["parsed"] = true;
+        j["data"] = str;
+        return j;
+    }
+    
 private:
     void dump_internal(std::ostringstream& oss, int indent, int current_indent) const {
         std::visit([&](const auto& v) {
