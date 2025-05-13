@@ -5,6 +5,7 @@
 #include "Enemy.h"
 #include "Tower.h"
 #include "Projectile.h"
+#include "WebSocketServer.h"
 #include <vector>
 #include <memory>
 #include <algorithm>
@@ -19,6 +20,7 @@ private:
     double m_waveTimer;
     int m_currentWave;
     bool m_running;
+    WebSocketServer m_webSocketServer;
     
 public:
     GameWorld() 
@@ -41,4 +43,7 @@ public:
     int getPlayerResources() const { return m_playerResources; }
     
     json getStateAsJson() const;
+    
+private:
+    void handleClientMessage(const std::string& message);
 };

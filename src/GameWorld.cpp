@@ -8,10 +8,18 @@ void GameWorld::init() {
     m_objects.push_back(std::make_unique<Planet>(Vec2d(100, 100), 30, 0)); // Neutral planet
     m_objects.push_back(std::make_unique<Planet>(Vec2d(700, 500), 30, 0)); // Neutral planet
     
+    // Set up WebSocket message handler
+    m_webSocketServer.setOnMessageCallback(
+        [this](const std::string& msg) { this->handleClientMessage(msg); });
+    
     std::cout << "Game world initialized with " << m_objects.size() << " objects" << std::endl;
 }
 
 void GameWorld::run() {
+    // Start WebSocket server
+    m_webSocketServer.run(9002);
+    std::cout << "WebSocket server started on port 9002" << std::endl;
+    
     auto last_time = std::chrono::high_resolution_clock::now();
     m_running = true;
     
@@ -23,12 +31,18 @@ void GameWorld::run() {
         
         update(deltaTime);
         
-        // Simple console rendering
+        // Broadcast game state to all connected clients
+        json state = getStateAsJson();
+        m_webSocketServer.broadcast(state.dump());
+        
+        // Simple console output
         std::cout << "\rHealth: " << m_playerHealth << " Resources: " << m_playerResources 
                   << " Wave: " << m_currentWave << " Objects: " << m_objects.size() << std::flush;
         
         std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60fps
     }
+    
+    m_webSocketServer.stop();
 }
 
 void GameWorld::update(double deltaTime) {
@@ -168,4 +182,29 @@ json GameWorld::getStateAsJson() const {
     state["currentWave"] = m_currentWave;
     
     return state;
+}
+
+void GameWorld::handleClientMessage(const std::string& message) {
+    try {
+        json msg = json::parse(message);
+        
+        // Check if it has parsed flag from our simplified parser
+        if (msg["parsed"] == true) {
+            // Extract actual data
+            std::string data = msg["data"];
+            
+            // Simple string parsing for demonstration
+            if (data.find("build_tower") != std::string::npos) {
+                // Extract position from message (simplified)
+                Vec2d position(400, 300); // Default position
+                if (placeTower(position, 0)) {
+                    std::cout << "\nTower placed at (" << position.x << ", " << position.y << ")" << std::endl;
+                } else {
+                    std::cout << "\nInsufficient resources to place tower" << std::endl;
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error handling message: " << e.what() << std::endl;
+    }
 }
