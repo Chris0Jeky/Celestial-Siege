@@ -1,0 +1,85 @@
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    color: #ffffff;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.game-container {
+    text-align: center;
+    padding: 20px;
+}
+
+h1 {
+    color: #4a9eff;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.game-info span {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: 1px solid rgba(74, 158, 255, 0.3);
+}
+
+#gameCanvas {
+    background-color: #001133;
+    border: 2px solid #4a9eff;
+    border-radius: 10px;
+    cursor: crosshair;
+    box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
+}
+
+.controls {
+    margin-top: 20px;
+}
+
+button {
+    background-color: #4a9eff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 10px;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #357abd;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+#status {
+    margin-left: 20px;
+    padding: 10px 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+}
+
+#status.connected {
+    color: #4aff4a;
+    border: 1px solid #4aff4a;
+}
+
+#status.disconnected {
+    color: #ff4a4a;
+    border: 1px solid #ff4a4a;
+}
