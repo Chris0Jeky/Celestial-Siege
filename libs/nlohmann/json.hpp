@@ -6,6 +6,7 @@
 #include <sstream>
 #include <memory>
 #include <variant>
+#include <stdexcept>
 
 namespace nlohmann {
 
@@ -64,6 +65,60 @@ public:
             m_value = array_t{};
         }
         std::get<array_t>(m_value).push_back(val);
+    }
+    
+    // Comparison operators
+    bool operator==(const json& other) const {
+        return m_value == other.m_value;
+    }
+    
+    bool operator==(bool v) const {
+        return std::holds_alternative<bool>(m_value) && std::get<bool>(m_value) == v;
+    }
+    
+    bool operator==(int v) const {
+        return std::holds_alternative<int>(m_value) && std::get<int>(m_value) == v;
+    }
+    
+    bool operator==(double v) const {
+        return std::holds_alternative<double>(m_value) && std::get<double>(m_value) == v;
+    }
+    
+    bool operator==(const char* v) const {
+        return std::holds_alternative<std::string>(m_value) && std::get<std::string>(m_value) == v;
+    }
+    
+    bool operator==(const std::string& v) const {
+        return std::holds_alternative<std::string>(m_value) && std::get<std::string>(m_value) == v;
+    }
+    
+    // Type conversion operators
+    operator std::string() const {
+        if (std::holds_alternative<std::string>(m_value)) {
+            return std::get<std::string>(m_value);
+        }
+        return dump();
+    }
+    
+    std::string get_string() const {
+        if (std::holds_alternative<std::string>(m_value)) {
+            return std::get<std::string>(m_value);
+        }
+        throw std::runtime_error("json value is not a string");
+    }
+    
+    bool get_bool() const {
+        if (std::holds_alternative<bool>(m_value)) {
+            return std::get<bool>(m_value);
+        }
+        throw std::runtime_error("json value is not a bool");
+    }
+    
+    int get_int() const {
+        if (std::holds_alternative<int>(m_value)) {
+            return std::get<int>(m_value);
+        }
+        throw std::runtime_error("json value is not an int");
     }
     
     std::string dump(int indent = -1) const {

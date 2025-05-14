@@ -189,9 +189,9 @@ void GameWorld::handleClientMessage(const std::string& message) {
         json msg = json::parse(message);
         
         // Check if it has parsed flag from our simplified parser
-        if (msg["parsed"] == true) {
+        if (msg["parsed"].get_bool() == true) {
             // Extract actual data
-            std::string data = msg["data"];
+            std::string data = msg["data"].get_string();
             
             // Simple string parsing for demonstration
             if (data.find("build_tower") != std::string::npos) {
