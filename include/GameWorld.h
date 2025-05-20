@@ -6,6 +6,7 @@
 #include "Tower.h"
 #include "Projectile.h"
 #include "WebSocketServer.h"
+#include "PhysicsEngine.h"
 #include <vector>
 #include <memory>
 #include <algorithm>
@@ -21,6 +22,7 @@ private:
     int m_currentWave;
     bool m_running;
     WebSocketServer m_webSocketServer;
+    PhysicsEngine m_physicsEngine;
     
 public:
     GameWorld() 

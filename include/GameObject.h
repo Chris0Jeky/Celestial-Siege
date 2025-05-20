@@ -20,16 +20,19 @@ public:
     GameObjectType type;
     Vec2d position;
     Vec2d velocity;
+    Vec2d forceAccumulator;  // For physics engine
     double mass;
     bool alive;
+    bool isStatic;  // For planets and towers that don't move
     
-    GameObject(GameObjectType type, Vec2d position, double mass = 1.0)
-        : id(next_id++), type(type), position(position), velocity(0, 0), mass(mass), alive(true) {}
+    GameObject(GameObjectType type, Vec2d position, double mass = 1.0, bool isStatic = false)
+        : id(next_id++), type(type), position(position), velocity(0, 0), 
+          forceAccumulator(0, 0), mass(mass), alive(true), isStatic(isStatic) {}
     
     virtual ~GameObject() = default;
     
     virtual void update(double deltaTime) {
-        position = position + velocity * deltaTime;
+        // Base update does nothing - physics engine handles movement
     }
     
     virtual void render() const = 0;
@@ -43,6 +46,7 @@ public:
         j["id"] = id;
         j["type"] = static_cast<int>(type);
         j["position"] = json{{"x", position.x}, {"y", position.y}};
+        j["velocity"] = json{{"x", velocity.x}, {"y", velocity.y}};
         return j;
     }
 };

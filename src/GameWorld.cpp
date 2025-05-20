@@ -3,16 +3,18 @@
 #include "../libs/nlohmann/json.hpp"
 
 void GameWorld::init() {
-    // Create some initial planets
-    m_objects.push_back(std::make_unique<Planet>(Vec2d(400, 300), 50, 1)); // Player's planet
-    m_objects.push_back(std::make_unique<Planet>(Vec2d(100, 100), 30, 0)); // Neutral planet
-    m_objects.push_back(std::make_unique<Planet>(Vec2d(700, 500), 30, 0)); // Neutral planet
+    // Create a solar system with planets that create gravitational fields
+    m_objects.push_back(std::make_unique<Planet>(Vec2d(400, 300), 50, 8000.0, 1)); // Player's planet (massive)
+    m_objects.push_back(std::make_unique<Planet>(Vec2d(150, 150), 30, 3000.0, 0)); // Neutral planet
+    m_objects.push_back(std::make_unique<Planet>(Vec2d(650, 450), 25, 2500.0, 0)); // Neutral planet
+    m_objects.push_back(std::make_unique<Planet>(Vec2d(200, 450), 20, 2000.0, -1)); // Enemy planet
     
     // Set up WebSocket message handler
     m_webSocketServer.setOnMessageCallback(
         [this](const std::string& msg) { this->handleClientMessage(msg); });
     
-    std::cout << "Game world initialized with " << m_objects.size() << " objects" << std::endl;
+    std::cout << "Celestial Siege initialized - Gravity simulation active!" << std::endl;
+    std::cout << "Planets create gravitational fields that affect all objects" << std::endl;
 }
 
 void GameWorld::run() {
@@ -46,7 +48,10 @@ void GameWorld::run() {
 }
 
 void GameWorld::update(double deltaTime) {
-    // Update all objects
+    // First, apply physics to all objects (gravity simulation)
+    m_physicsEngine.update(m_objects, deltaTime);
+    
+    // Then update individual objects
     for (auto& obj : m_objects) {
         obj->update(deltaTime);
     }
@@ -156,10 +161,11 @@ bool GameWorld::placeTower(Vec2d position, int towerType) {
 }
 
 void GameWorld::spawnEnemy(Vec2d position) {
-    // Make enemies move toward player base
+    // Enemies now start with initial velocity but gravity will curve their path
     auto enemy = std::make_unique<Enemy>(position);
     Vec2d direction = (Vec2d(400, 300) - position).normalized();
     enemy->velocity = direction * enemy->speed;
+    // Gravity will pull them towards planets, creating interesting curved paths!
     m_objects.push_back(std::move(enemy));
 }
 

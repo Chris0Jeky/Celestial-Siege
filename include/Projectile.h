@@ -11,16 +11,17 @@ public:
     double lifetime;
     
     Projectile(Vec2d position, Vec2d targetPosition, double damage = 20.0, double speed = 200.0)
-        : GameObject(GameObjectType::Projectile, position, 0.1),
+        : GameObject(GameObjectType::Projectile, position, 1.0, false),
           damage(damage), speed(speed), targetId(-1), lifetime(5.0) {
         
-        // Calculate velocity towards target
+        // Calculate initial velocity towards target
         Vec2d direction = (targetPosition - position).normalized();
         velocity = direction * speed;
+        // Now gravity will curve its path!
     }
     
     void update(double deltaTime) override {
-        GameObject::update(deltaTime);
+        // Don't call base update - physics engine handles movement
         lifetime -= deltaTime;
         if (lifetime <= 0) {
             alive = false;

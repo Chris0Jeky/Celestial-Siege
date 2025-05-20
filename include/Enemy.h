@@ -11,12 +11,12 @@ public:
     int reward;
     
     Enemy(Vec2d position, double health = 100.0, double speed = 50.0, int reward = 10)
-        : GameObject(GameObjectType::Enemy, position, 1.0), 
+        : GameObject(GameObjectType::Enemy, position, 5.0, false), 
           health(health), maxHealth(health), speed(speed), reward(reward) {}
     
     void update(double deltaTime) override {
-        GameObject::update(deltaTime);
-        // Enemy-specific update logic
+        // Don't call base update - physics engine handles movement
+        // Enemy-specific update logic can go here
     }
     
     void takeDamage(double damage) {

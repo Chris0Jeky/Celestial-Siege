@@ -8,8 +8,8 @@ public:
     double radius;
     int owner; // 0 = neutral, 1 = player, -1 = enemy
     
-    Planet(Vec2d position, double radius = 30.0, int owner = 0)
-        : GameObject(GameObjectType::Planet, position, radius * 10), radius(radius), owner(owner) {}
+    Planet(Vec2d position, double radius = 30.0, double mass = 5000.0, int owner = 0)
+        : GameObject(GameObjectType::Planet, position, mass, true), radius(radius), owner(owner) {}
     
     void render() const override {
         std::cout << "Planet at (" << position.x << ", " << position.y << ") with radius " << radius << std::endl;
