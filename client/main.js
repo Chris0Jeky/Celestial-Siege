@@ -10,6 +10,9 @@ let gameState = {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Particle system for visual effects
+const particleSystem = new ParticleSystem();
+
 // WebSocket connection
 let ws = null;
 let isConnected = false;
