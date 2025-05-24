@@ -7,6 +7,7 @@
 #include "Projectile.h"
 #include "WebSocketServer.h"
 #include "PhysicsEngine.h"
+#include "CellularAutomata.h"
 #include <vector>
 #include <memory>
 #include <algorithm>
@@ -23,11 +24,14 @@ private:
     bool m_running;
     WebSocketServer m_webSocketServer;
     PhysicsEngine m_physicsEngine;
+    CellularAutomata m_cellularAutomata;
+    double m_cellularUpdateTimer;
     
 public:
     GameWorld() 
         : m_playerHealth(100), m_playerResources(200), 
-          m_waveTimer(0), m_currentWave(0), m_running(false) {}
+          m_waveTimer(0), m_currentWave(0), m_running(false),
+          m_cellularAutomata(80, 60, 10.0), m_cellularUpdateTimer(0) {}
     
     void init();
     void run();
