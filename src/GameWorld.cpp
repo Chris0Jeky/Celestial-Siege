@@ -9,12 +9,16 @@ void GameWorld::init() {
     m_objects.push_back(std::make_unique<Planet>(Vec2d(650, 450), 25, 2500.0, 0)); // Neutral planet
     m_objects.push_back(std::make_unique<Planet>(Vec2d(200, 450), 20, 2000.0, -1)); // Enemy planet
     
+    // Initialize cellular automata for dynamic terrain
+    m_cellularAutomata.initialize(0.35); // 35% initial density
+    
     // Set up WebSocket message handler
     m_webSocketServer.setOnMessageCallback(
         [this](const std::string& msg) { this->handleClientMessage(msg); });
     
     std::cout << "Celestial Siege initialized - Gravity simulation active!" << std::endl;
     std::cout << "Planets create gravitational fields that affect all objects" << std::endl;
+    std::cout << "Dynamic terrain using Game of Life cellular automata" << std::endl;
 }
 
 void GameWorld::run() {
@@ -54,6 +58,13 @@ void GameWorld::update(double deltaTime) {
     // Then update individual objects
     for (auto& obj : m_objects) {
         obj->update(deltaTime);
+    }
+    
+    // Update cellular automata periodically (every 2 seconds)
+    m_cellularUpdateTimer += deltaTime;
+    if (m_cellularUpdateTimer > 2.0) {
+        m_cellularAutomata.update();
+        m_cellularUpdateTimer = 0;
     }
     
     // Update wave timer
@@ -151,6 +162,23 @@ void GameWorld::cleanupDeadObjects() {
 }
 
 bool GameWorld::placeTower(Vec2d position, int towerType) {
+    // Check if position is buildable according to cellular automata
+    if (!m_cellularAutomata.isBuildable(position)) {
+        std::cout << "\nCannot build here - terrain is not suitable!" << std::endl;
+        return false;
+    }
+    
+    // Check for collision with existing objects
+    for (const auto& obj : m_objects) {
+        if (obj->alive && obj->isStatic) {
+            double dist = (obj->position - position).length();
+            if (dist < 40) { // Minimum distance between static objects
+                std::cout << "\nToo close to existing structure!" << std::endl;
+                return false;
+            }
+        }
+    }
+    
     Tower tower(position);
     if (m_playerResources >= tower.cost) {
         m_playerResources -= tower.cost;
@@ -186,6 +214,24 @@ json GameWorld::getStateAsJson() const {
     state["playerHealth"] = m_playerHealth;
     state["playerResources"] = m_playerResources;
     state["currentWave"] = m_currentWave;
+    
+    // Add cellular automata grid data
+    json gridData;
+    gridData["width"] = m_cellularAutomata.getWidth();
+    gridData["height"] = m_cellularAutomata.getHeight();
+    gridData["cellSize"] = m_cellularAutomata.getCellSize();
+    gridData["cells"] = json::array();
+    
+    const auto& grid = m_cellularAutomata.getGrid();
+    for (int y = 0; y < m_cellularAutomata.getHeight(); ++y) {
+        json row = json::array();
+        for (int x = 0; x < m_cellularAutomata.getWidth(); ++x) {
+            row.push_back(static_cast<int>(grid[y][x]));
+        }
+        gridData["cells"].push_back(row);
+    }
+    
+    state["terrain"] = gridData;
     
     return state;
 }
