@@ -13,6 +13,7 @@ set(SOURCES
     src/GameWorld.cpp
     src/WebSocketServer.cpp
     src/PhysicsEngine.cpp
+    src/CellularAutomata.cpp
 )
 
 # Header files
@@ -27,6 +28,7 @@ set(HEADERS
     include/WebSocketServer.h
     include/ConsoleRenderer.h
     include/PhysicsEngine.h
+    include/CellularAutomata.h
 )
 
 add_executable(Celestial_Siege ${SOURCES} ${HEADERS})
