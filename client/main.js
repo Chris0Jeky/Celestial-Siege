@@ -127,8 +127,40 @@ function render() {
     ctx.fillStyle = '#001133';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    // Draw cellular automata terrain
+    if (gameState.terrain) {
+        const cellSize = gameState.terrain.cellSize || 10;
+        const cells = gameState.terrain.cells;
+        
+        if (cells) {
+            for (let y = 0; y < cells.length; y++) {
+                for (let x = 0; x < cells[y].length; x++) {
+                    const cellType = cells[y][x];
+                    let color = null;
+                    
+                    switch (cellType) {
+                        case 1: // StarDust
+                            color = 'rgba(100, 150, 255, 0.3)';
+                            break;
+                        case 2: // DenseNebula
+                            color = 'rgba(200, 100, 255, 0.4)';
+                            break;
+                        case 3: // Asteroid
+                            color = 'rgba(150, 150, 150, 0.6)';
+                            break;
+                    }
+                    
+                    if (color) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Draw grid overlay (lighter)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     for (let x = 0; x < canvas.width; x += 50) {
         ctx.beginPath();
