@@ -24,6 +24,141 @@ class MockWebSocket {
         }, 100);
     }
     
+    initializeTerrain() {
+        const width = 80;
+        const height = 60;
+        const cellSize = 10;
+        
+        // Initialize empty grid
+        this.terrainGrid = [];
+        for (let y = 0; y < height; y++) {
+            this.terrainGrid[y] = [];
+            for (let x = 0; x < width; x++) {
+                this.terrainGrid[y][x] = 0; // Empty
+            }
+        }
+        
+        // Randomly seed with stardust
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (Math.random() < 0.35) {
+                    this.terrainGrid[y][x] = 1; // StarDust
+                }
+            }
+        }
+        
+        // Create some initial clusters
+        for (let i = 0; i < 5; i++) {
+            const cx = Math.floor(Math.random() * (width - 10) + 5);
+            const cy = Math.floor(Math.random() * (height - 10) + 5);
+            const radius = 3;
+            
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (dx*dx + dy*dy <= radius*radius) {
+                        const x = cx + dx;
+                        const y = cy + dy;
+                        if (x >= 0 && x < width && y >= 0 && y < height) {
+                            this.terrainGrid[y][x] = 1;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Add terrain to game state
+        this.gameState.terrain = {
+            width: width,
+            height: height,
+            cellSize: cellSize,
+            cells: this.terrainGrid
+        };
+        
+        // Set up periodic updates
+        this.terrainUpdateCounter = 0;
+    }
+    
+    updateTerrain() {
+        const width = this.gameState.terrain.width;
+        const height = this.gameState.terrain.height;
+        const newGrid = [];
+        
+        // Initialize new grid
+        for (let y = 0; y < height; y++) {
+            newGrid[y] = [];
+            for (let x = 0; x < width; x++) {
+                newGrid[y][x] = this.applyGameOfLifeRules(x, y);
+            }
+        }
+        
+        // Update the grid
+        this.terrainGrid = newGrid;
+        this.gameState.terrain.cells = this.terrainGrid;
+    }
+    
+    countNeighbors(x, y, type) {
+        let count = 0;
+        const width = this.gameState.terrain.width;
+        const height = this.gameState.terrain.height;
+        
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                
+                const nx = x + dx;
+                const ny = y + dy;
+                
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    if (this.terrainGrid[ny][nx] === type || 
+                        (type === 1 && this.terrainGrid[ny][nx] === 2)) {
+                        count++;
+                    }
+                }
+            }
+        }
+        
+        return count;
+    }
+    
+    applyGameOfLifeRules(x, y) {
+        const current = this.terrainGrid[y][x];
+        const stardustNeighbors = this.countNeighbors(x, y, 1);
+        
+        switch (current) {
+            case 0: // Empty
+                if (stardustNeighbors === 3) {
+                    return 1; // Birth
+                }
+                break;
+                
+            case 1: // StarDust
+                if (stardustNeighbors === 2 || stardustNeighbors === 3) {
+                    return 1; // Survival
+                } else if (stardustNeighbors >= 4) {
+                    return 2; // Overcrowding -> DenseNebula
+                } else {
+                    return 0; // Death
+                }
+                break;
+                
+            case 2: // DenseNebula
+                if (stardustNeighbors <= 1) {
+                    return 1; // Dissipate to stardust
+                } else if (stardustNeighbors >= 6 && (x + y) % 7 === 0) {
+                    return 3; // Form asteroid
+                }
+                break;
+                
+            case 3: // Asteroid
+                if (stardustNeighbors === 0) {
+                    return 0; // Break apart
+                }
+                break;
+        }
+        
+        return current;
+    }
+    
     send(data) {
         console.log('Mock server received:', data);
         
@@ -39,15 +174,29 @@ class MockWebSocket {
                 
                 // Update game state
                 if (this.gameState.playerResources >= 50) {
-                    this.gameState.playerResources -= 50;
-                    this.gameState.objects.push({
-                        id: Date.now(),
-                        type: 3, // Tower
-                        position: message.position,
-                        range: 100,
-                        damage: 20,
-                        fireRate: 1
-                    });
+                    // Check if terrain is buildable
+                    const gridX = Math.floor(message.position.x / this.gameState.terrain.cellSize);
+                    const gridY = Math.floor(message.position.y / this.gameState.terrain.cellSize);
+                    
+                    if (gridX >= 0 && gridX < this.gameState.terrain.width && 
+                        gridY >= 0 && gridY < this.gameState.terrain.height) {
+                        const cellType = this.terrainGrid[gridY][gridX];
+                        
+                        // Can only build on stardust (1) or dense nebula (2)
+                        if (cellType === 1 || cellType === 2) {
+                            this.gameState.playerResources -= 50;
+                            this.gameState.objects.push({
+                                id: Date.now(),
+                                type: 3, // Tower
+                                position: message.position,
+                                range: 100,
+                                damage: 20,
+                                fireRate: 1
+                            });
+                        } else {
+                            console.log('Cannot build here - unsuitable terrain!');
+                        }
+                    }
                 }
             }
         } catch (e) {
@@ -80,12 +229,22 @@ class MockWebSocket {
             currentWave: 0
         };
         
+        // Initialize cellular automata terrain
+        this.initializeTerrain();
+        
         let enemySpawnTimer = 0;
         let waveTimer = 0;
         
         // Simulate game updates
         this.gameInterval = setInterval(() => {
             const deltaTime = 0.016; // 60 FPS
+            
+            // Update terrain periodically (every 2 seconds)
+            this.terrainUpdateCounter += deltaTime;
+            if (this.terrainUpdateCounter > 2.0) {
+                this.updateTerrain();
+                this.terrainUpdateCounter = 0;
+            }
             
             // Update enemies
             this.gameState.objects.forEach(obj => {
