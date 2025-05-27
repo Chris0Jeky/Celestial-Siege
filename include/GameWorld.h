@@ -8,6 +8,7 @@
 #include "WebSocketServer.h"
 #include "PhysicsEngine.h"
 #include "CellularAutomata.h"
+#include "PathfindingSystem.h"
 #include <vector>
 #include <memory>
 #include <algorithm>
@@ -26,12 +27,14 @@ private:
     PhysicsEngine m_physicsEngine;
     CellularAutomata m_cellularAutomata;
     double m_cellularUpdateTimer;
+    PathfindingSystem m_pathfinding;
     
 public:
     GameWorld() 
         : m_playerHealth(100), m_playerResources(200), 
           m_waveTimer(0), m_currentWave(0), m_running(false),
-          m_cellularAutomata(80, 60, 10.0), m_cellularUpdateTimer(0) {}
+          m_cellularAutomata(80, 60, 10.0), m_cellularUpdateTimer(0),
+          m_pathfinding(80, 60, 10.0) {}
     
     void init();
     void run();
