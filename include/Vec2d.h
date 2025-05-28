@@ -24,11 +24,21 @@ struct Vec2d {
         return std::sqrt(x * x + y * y);
     }
     
+    double length_sq() const {
+        return x * x + y * y;
+    }
+    
     Vec2d normalized() const {
         double len = length();
         if (len > 0) {
             return Vec2d(x / len, y / len);
         }
         return Vec2d(0, 0);
+    }
+    
+    Vec2d& operator+=(const Vec2d& other) {
+        x += other.x;
+        y += other.y;
+        return *this;
     }
 };
