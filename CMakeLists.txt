@@ -14,6 +14,7 @@ set(SOURCES
     src/WebSocketServer.cpp
     src/PhysicsEngine.cpp
     src/CellularAutomata.cpp
+    src/PathfindingSystem.cpp
 )
 
 # Header files
@@ -29,6 +30,7 @@ set(HEADERS
     include/ConsoleRenderer.h
     include/PhysicsEngine.h
     include/CellularAutomata.h
+    include/PathfindingSystem.h
 )
 
 add_executable(Celestial_Siege ${SOURCES} ${HEADERS})
