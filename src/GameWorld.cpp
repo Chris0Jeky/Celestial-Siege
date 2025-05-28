@@ -12,6 +12,9 @@ void GameWorld::init() {
     // Initialize cellular automata for dynamic terrain
     m_cellularAutomata.initialize(0.35); // 35% initial density
     
+    // Initialize pathfinding obstacles
+    m_pathfinding.updateObstacles(m_objects);
+    
     // Set up WebSocket message handler
     m_webSocketServer.setOnMessageCallback(
         [this](const std::string& msg) { this->handleClientMessage(msg); });
@@ -19,6 +22,7 @@ void GameWorld::init() {
     std::cout << "Celestial Siege initialized - Gravity simulation active!" << std::endl;
     std::cout << "Planets create gravitational fields that affect all objects" << std::endl;
     std::cout << "Dynamic terrain using Game of Life cellular automata" << std::endl;
+    std::cout << "Enemies use gravity-aware A* pathfinding" << std::endl;
 }
 
 void GameWorld::run() {
@@ -54,6 +58,30 @@ void GameWorld::run() {
 void GameWorld::update(double deltaTime) {
     // First, apply physics to all objects (gravity simulation)
     m_physicsEngine.update(m_objects, deltaTime);
+    
+    // Update pathfinding for enemies
+    for (auto& obj : m_objects) {
+        if (obj->type == GameObjectType::Enemy && obj->alive) {
+            Enemy* enemy = static_cast<Enemy*>(obj.get());
+            
+            // Check if enemy needs a new path
+            if (enemy->needsNewPath()) {
+                // Find path to player's home planet
+                std::vector<Vec2d> path = m_pathfinding.findPath(
+                    enemy->position, 
+                    m_objects[0]->position, // Player's planet
+                    m_objects,
+                    m_physicsEngine
+                );
+                enemy->setPath(path);
+            }
+            
+            // Apply velocity towards next path target
+            Vec2d target = enemy->getNextPathTarget();
+            Vec2d direction = (target - enemy->position).normalized();
+            enemy->velocity = direction * enemy->speed;
+        }
+    }
     
     // Then update individual objects
     for (auto& obj : m_objects) {
@@ -183,17 +211,18 @@ bool GameWorld::placeTower(Vec2d position, int towerType) {
     if (m_playerResources >= tower.cost) {
         m_playerResources -= tower.cost;
         m_objects.push_back(std::make_unique<Tower>(position));
+        // Update pathfinding obstacles when new tower is placed
+        m_pathfinding.updateObstacles(m_objects);
         return true;
     }
     return false;
 }
 
 void GameWorld::spawnEnemy(Vec2d position) {
-    // Enemies now start with initial velocity but gravity will curve their path
+    // Create enemy without initial velocity - pathfinding will handle movement
     auto enemy = std::make_unique<Enemy>(position);
-    Vec2d direction = (Vec2d(400, 300) - position).normalized();
-    enemy->velocity = direction * enemy->speed;
-    // Gravity will pull them towards planets, creating interesting curved paths!
+    enemy->setTarget(m_objects[0]->position); // Target player's planet
+    // Enemy will calculate gravity-aware path on first update
     m_objects.push_back(std::move(enemy));
 }
 
