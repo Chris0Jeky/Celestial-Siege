@@ -1,4 +1,5 @@
 #include "PathfindingSystem.h"
+#include "Planet.h"
 #include <algorithm>
 #include <limits>
 
