@@ -83,7 +83,7 @@ public:
         // Optionally add path visualization data
         if (!m_path.empty()) {
             j["hasPath"] = true;
-            j["pathLength"] = m_path.size();
+            j["pathLength"] = static_cast<int>(m_path.size());
         }
         return j;
     }
