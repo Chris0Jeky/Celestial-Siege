@@ -173,7 +173,11 @@ class MockWebSocket {
                 });
                 
                 // Update game state
-                if (this.gameState.playerResources >= 50) {
+                const towerType = message.towerType || 0;
+                const towerCosts = { 0: 50, 1: 75, 2: 60, 3: 100 };
+                const cost = towerCosts[towerType] || 50;
+                
+                if (this.gameState.playerResources >= cost) {
                     // Check if terrain is buildable
                     const gridX = Math.floor(message.position.x / this.gameState.terrain.cellSize);
                     const gridY = Math.floor(message.position.y / this.gameState.terrain.cellSize);
@@ -184,14 +188,24 @@ class MockWebSocket {
                         
                         // Can only build on stardust (1) or dense nebula (2)
                         if (cellType === 1 || cellType === 2) {
-                            this.gameState.playerResources -= 50;
+                            this.gameState.playerResources -= cost;
+                            
+                            // Create tower with type-specific properties
+                            const towerConfigs = {
+                                0: { range: 100, damage: 20, fireRate: 1 }, // Basic
+                                1: { range: 120, damage: 15, fireRate: 1.5, splashRadius: 50 }, // Splash
+                                2: { range: 80, damage: 5, fireRate: 2, slowFactor: 0.5 }, // Slow
+                                3: { range: 150, damage: 0, fireRate: 0, mass: 500 } // Gravity
+                            };
+                            
+                            const config = towerConfigs[towerType] || towerConfigs[0];
+                            
                             this.gameState.objects.push({
                                 id: Date.now(),
                                 type: 3, // Tower
+                                towerType: towerType,
                                 position: message.position,
-                                range: 100,
-                                damage: 20,
-                                fireRate: 1
+                                ...config
                             });
                         } else {
                             console.log('Cannot build here - unsuitable terrain!');
@@ -254,8 +268,9 @@ class MockWebSocket {
                     const dy = 300 - obj.position.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist > 0) {
-                        obj.position.x += (dx / dist) * 50 * deltaTime;
-                        obj.position.y += (dy / dist) * 50 * deltaTime;
+                        const speed = 50 * (obj.speedMultiplier || 1.0);
+                        obj.position.x += (dx / dist) * speed * deltaTime;
+                        obj.position.y += (dy / dist) * speed * deltaTime;
                     }
                     
                     // Check if reached base
@@ -285,17 +300,61 @@ class MockWebSocket {
                         }
                     });
                     
-                    if (nearestEnemy && (!tower.cooldown || tower.cooldown <= 0)) {
-                        // Create projectile
-                        this.gameState.objects.push({
-                            id: Date.now() + Math.random(),
-                            type: 4, // Projectile
-                            position: { ...tower.position },
-                            target: nearestEnemy.id,
-                            damage: tower.damage || 20,
-                            speed: 200
-                        });
-                        tower.cooldown = 1.0; // 1 second cooldown
+                    if (nearestEnemy && (!tower.cooldown || tower.cooldown <= 0) && tower.fireRate > 0) {
+                        // Handle different tower types
+                        switch (tower.towerType) {
+                            case 1: // Splash tower
+                                // Damage all enemies in splash radius
+                                this.gameState.objects.forEach(enemy => {
+                                    if (enemy.type === 2 && enemy.alive !== false) {
+                                        const dx = enemy.position.x - nearestEnemy.position.x;
+                                        const dy = enemy.position.y - nearestEnemy.position.y;
+                                        const dist = Math.sqrt(dx * dx + dy * dy);
+                                        if (dist <= (tower.splashRadius || 50)) {
+                                            enemy.health = (enemy.health || 100) - tower.damage;
+                                            if (enemy.health <= 0) {
+                                                enemy.alive = false;
+                                                this.gameState.playerResources += 10;
+                                            }
+                                        }
+                                    }
+                                });
+                                break;
+                                
+                            case 2: // Slow tower
+                                // Apply slow effect
+                                if (nearestEnemy) {
+                                    nearestEnemy.speedMultiplier = tower.slowFactor || 0.5;
+                                    // Remove slow after 3 seconds
+                                    setTimeout(() => {
+                                        if (nearestEnemy) nearestEnemy.speedMultiplier = 1.0;
+                                    }, 3000);
+                                    nearestEnemy.health = (nearestEnemy.health || 100) - tower.damage;
+                                    if (nearestEnemy.health <= 0) {
+                                        nearestEnemy.alive = false;
+                                        this.gameState.playerResources += 10;
+                                    }
+                                }
+                                break;
+                                
+                            case 3: // Gravity tower
+                                // Gravity towers don't fire - their effect is passive
+                                break;
+                                
+                            default: // Basic tower
+                                // Create projectile
+                                this.gameState.objects.push({
+                                    id: Date.now() + Math.random(),
+                                    type: 4, // Projectile
+                                    position: { ...tower.position },
+                                    target: nearestEnemy.id,
+                                    damage: tower.damage || 20,
+                                    speed: 200
+                                });
+                                break;
+                        }
+                        
+                        tower.cooldown = 1.0 / (tower.fireRate || 1);
                     }
                     
                     if (tower.cooldown > 0) {
