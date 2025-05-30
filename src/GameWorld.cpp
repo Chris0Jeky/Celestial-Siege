@@ -122,8 +122,13 @@ void GameWorld::update(double deltaTime) {
                 }
                 
                 if (nearestEnemy) {
-                    spawnProjectile(tower->position, nearestEnemy->position, tower->damage);
-                    tower->fire();
+                    // Use the new fireAt method which handles different tower types
+                    tower->fireAt(nearestEnemy, m_objects);
+                    
+                    // Basic towers still spawn projectiles
+                    if (dynamic_cast<BasicTower*>(tower) != nullptr) {
+                        spawnProjectile(tower->position, nearestEnemy->position, tower->damage);
+                    }
                 }
             }
         }
@@ -207,10 +212,11 @@ bool GameWorld::placeTower(Vec2d position, int towerType) {
         }
     }
     
-    Tower tower(position);
-    if (m_playerResources >= tower.cost) {
-        m_playerResources -= tower.cost;
-        m_objects.push_back(std::make_unique<Tower>(position));
+    // Create tower based on type
+    auto tower = createTower(static_cast<TowerType>(towerType), position);
+    if (m_playerResources >= tower->cost) {
+        m_playerResources -= tower->cost;
+        m_objects.push_back(std::move(tower));
         // Update pathfinding obstacles when new tower is placed
         m_pathfinding.updateObstacles(m_objects);
         return true;

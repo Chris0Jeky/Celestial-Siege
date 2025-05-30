@@ -4,6 +4,7 @@
 #include "Planet.h"
 #include "Enemy.h"
 #include "Tower.h"
+#include "TowerTypes.h"
 #include "Projectile.h"
 #include "WebSocketServer.h"
 #include "PhysicsEngine.h"
