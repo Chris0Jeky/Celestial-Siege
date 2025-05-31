@@ -83,3 +83,35 @@ button:active {
     color: #ff4a4a;
     border: 1px solid #ff4a4a;
 }
+
+.tower-selection {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.tower-btn {
+    padding: 10px 15px;
+    background: #1a1a1a;
+    color: #0f0;
+    border: 2px solid #0f0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: monospace;
+}
+
+.tower-btn:hover {
+    background: #2a2a2a;
+    transform: scale(1.05);
+}
+
+.tower-btn.active {
+    background: #0f0;
+    color: #000;
+}
+
+.tower-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
