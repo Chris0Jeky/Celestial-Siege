@@ -32,6 +32,14 @@ const RENDER_CONFIG = {
     4: { color: '#ffff00', radius: 3, name: 'Projectile' }   // Projectile
 };
 
+// Tower type colors
+const TOWER_COLORS = {
+    0: '#44ff44', // Basic - green
+    1: '#ff8844', // Splash - orange
+    2: '#44aaff', // Slow - blue
+    3: '#ff44ff'  // Gravity - purple
+};
+
 // Connect button handler
 connectBtn.addEventListener('click', () => {
     if (!isConnected) {
@@ -39,6 +47,19 @@ connectBtn.addEventListener('click', () => {
     } else {
         disconnectFromServer();
     }
+});
+
+// Tower selection
+let selectedTowerType = 0;
+const towerButtons = document.querySelectorAll('.tower-btn');
+
+towerButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        // Update active state
+        towerButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedTowerType = parseInt(btn.dataset.type);
+    });
 });
 
 // Canvas click handler
@@ -49,10 +70,11 @@ canvas.addEventListener('click', (event) => {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     
-    // Send build tower command
+    // Send build tower command with selected type
     const message = {
         action: 'build_tower',
-        position: { x: x, y: y }
+        position: { x: x, y: y },
+        towerType: selectedTowerType
     };
     
     ws.send(JSON.stringify(message));
@@ -183,7 +205,14 @@ function render() {
             
             ctx.beginPath();
             ctx.arc(obj.position.x, obj.position.y, config.radius, 0, Math.PI * 2);
-            ctx.fillStyle = config.color;
+            
+            // Use tower-specific colors
+            if (obj.type === 3 && obj.towerType !== undefined) {
+                ctx.fillStyle = TOWER_COLORS[obj.towerType] || config.color;
+            } else {
+                ctx.fillStyle = config.color;
+            }
+            
             ctx.fill();
             
             // Draw additional info for specific types
