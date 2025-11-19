@@ -434,7 +434,70 @@ void GameWorld::handleClientMessage(const std::string& message) {
             int towerId = msg["towerId"].get_int();
             upgradeTower(towerId);
         }
+        // Handle special abilities
+        else if (action == "special_ability") {
+            std::string abilityType = msg["abilityType"].get_string();
+            activateSpecialAbility(abilityType);
+        }
     } catch (const std::exception& e) {
         std::cerr << "Error handling message: " << e.what() << std::endl;
+    }
+}
+
+void GameWorld::activateSpecialAbility(const std::string& abilityType) {
+    int cost = 0;
+
+    if (abilityType == "meteorStrike") {
+        cost = 100;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** METEOR STRIKE ACTIVATED ***" << std::endl;
+
+            // Deal area damage to all enemies
+            for (auto& obj : m_objects) {
+                if (obj->type == GameObjectType::Enemy && obj->alive) {
+                    Enemy* enemy = static_cast<Enemy*>(obj.get());
+                    enemy->takeDamage(50); // Heavy damage to all enemies
+                }
+            }
+
+            std::cout << "Meteor strike dealt 50 damage to all enemies!" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Meteor Strike!" << std::endl;
+        }
+    }
+    else if (abilityType == "freezeWave") {
+        cost = 150;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** FREEZE WAVE ACTIVATED ***" << std::endl;
+
+            // Apply slow to all enemies
+            for (auto& obj : m_objects) {
+                if (obj->type == GameObjectType::Enemy && obj->alive) {
+                    Enemy* enemy = static_cast<Enemy*>(obj.get());
+                    enemy->applySlow(0.3, 5.0); // 70% slow for 5 seconds
+                }
+            }
+
+            std::cout << "All enemies slowed by 70% for 5 seconds!" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Freeze Wave!" << std::endl;
+        }
+    }
+    else if (abilityType == "repair") {
+        cost = 200;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** REPAIR ACTIVATED ***" << std::endl;
+
+            // Restore health
+            int healAmount = 30;
+            m_playerHealth = std::min(100, m_playerHealth + healAmount);
+
+            std::cout << "Base repaired! Restored " << healAmount << " health" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Repair!" << std::endl;
+        }
     }
 }
