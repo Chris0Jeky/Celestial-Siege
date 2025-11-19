@@ -409,35 +409,121 @@ void GameWorld::handleClientMessage(const std::string& message) {
     try {
         json msg = json::parse(message);
 
+        std::string action;
+        try {
+            action = msg["action"].get_string();
+        } catch (const std::exception& e) {
+            std::cerr << "Ignoring client message with invalid action: " << e.what() << std::endl;
+            return;
+        }
+
         // Handle build_tower action
-        std::string action = msg["action"].get_string();
         if (action == "build_tower") {
-            // Extract position and tower type
-            double x = msg["position"]["x"].get_double();
-            double y = msg["position"]["y"].get_double();
-            Vec2d pos(x, y);
+            try {
+                double x = msg["position"]["x"].get_double();
+                double y = msg["position"]["y"].get_double();
+                Vec2d pos(x, y);
 
-            // Extract tower type (default to Basic if not specified)
-            int towerType = 0;
-            if (!msg["towerType"].is_null()) {
-                towerType = msg["towerType"].get_int();
-            }
+                // Extract tower type (default to Basic if not specified)
+                int towerType = 0;
+                try {
+                    towerType = msg["towerType"].get_int();
+                } catch (const std::exception&) {
+                    // Keep default when missing or invalid
+                }
 
-            std::cout << "\nAttempting to place tower type " << towerType
-                      << " at (" << pos.x << ", " << pos.y << ")" << std::endl;
+                std::cout << "\nAttempting to place tower type " << towerType
+                          << " at (" << pos.x << ", " << pos.y << ")" << std::endl;
 
-            if (placeTower(pos, towerType)) {
-                std::cout << "Tower placed successfully!" << std::endl;
-            } else {
-                std::cout << "Failed to place tower (insufficient resources or invalid location)" << std::endl;
+                if (placeTower(pos, towerType)) {
+                    std::cout << "Tower placed successfully!" << std::endl;
+                } else {
+                    std::cout << "Failed to place tower (insufficient resources or invalid location)" << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid build_tower message: " << e.what() << std::endl;
+                return;
             }
         }
         // Handle tower upgrade action
         else if (action == "upgrade_tower") {
-            int towerId = msg["towerId"].get_int();
-            upgradeTower(towerId);
+            try {
+                int towerId = msg["towerId"].get_int();
+                upgradeTower(towerId);
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid upgrade_tower message: " << e.what() << std::endl;
+                return;
+            }
+        }
+        // Handle special abilities
+        else if (action == "special_ability") {
+            try {
+                std::string abilityType = msg["abilityType"].get_string();
+                activateSpecialAbility(abilityType);
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid special_ability message: " << e.what() << std::endl;
+                return;
+            }
         }
     } catch (const std::exception& e) {
         std::cerr << "Error handling message: " << e.what() << std::endl;
+    }
+}
+
+void GameWorld::activateSpecialAbility(const std::string& abilityType) {
+    int cost = 0;
+
+    if (abilityType == "meteorStrike") {
+        cost = 100;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** METEOR STRIKE ACTIVATED ***" << std::endl;
+
+            // Deal area damage to all enemies
+            for (auto& obj : m_objects) {
+                if (obj->type == GameObjectType::Enemy && obj->alive) {
+                    Enemy* enemy = static_cast<Enemy*>(obj.get());
+                    enemy->takeDamage(50); // Heavy damage to all enemies
+                }
+            }
+
+            std::cout << "Meteor strike dealt 50 damage to all enemies!" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Meteor Strike!" << std::endl;
+        }
+    }
+    else if (abilityType == "freezeWave") {
+        cost = 150;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** FREEZE WAVE ACTIVATED ***" << std::endl;
+
+            // Apply slow to all enemies
+            for (auto& obj : m_objects) {
+                if (obj->type == GameObjectType::Enemy && obj->alive) {
+                    Enemy* enemy = static_cast<Enemy*>(obj.get());
+                    enemy->applySlow(0.3, 5.0); // 70% slow for 5 seconds
+                }
+            }
+
+            std::cout << "All enemies slowed by 70% for 5 seconds!" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Freeze Wave!" << std::endl;
+        }
+    }
+    else if (abilityType == "repair") {
+        cost = 200;
+        if (m_playerResources >= cost) {
+            m_playerResources -= cost;
+            std::cout << "\n*** REPAIR ACTIVATED ***" << std::endl;
+
+            // Restore health
+            int healAmount = 30;
+            m_playerHealth = std::min(100, m_playerHealth + healAmount);
+
+            std::cout << "Base repaired! Restored " << healAmount << " health" << std::endl;
+        } else {
+            std::cout << "Insufficient resources for Repair!" << std::endl;
+        }
     }
 }

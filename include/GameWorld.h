@@ -68,4 +68,5 @@ public:
     
 private:
     void handleClientMessage(const std::string& message);
+    void activateSpecialAbility(const std::string& abilityType);
 };
