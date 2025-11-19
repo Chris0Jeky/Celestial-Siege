@@ -6,6 +6,11 @@ let gameState = {
     currentWave: 0
 };
 
+// Track previous game state for detecting changes
+let previousGameState = {
+    objects: []
+};
+
 // Canvas setup
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -134,14 +139,65 @@ function disconnectFromServer() {
 }
 
 function updateGameState(newState) {
+    // Detect events and trigger particle effects
+    detectGameEvents(gameState, newState);
+
+    // Update state
+    previousGameState = JSON.parse(JSON.stringify(gameState));
     gameState = newState;
     updateUI();
+}
+
+function detectGameEvents(oldState, newState) {
+    // Detect enemy deaths
+    const oldEnemies = oldState.objects ? oldState.objects.filter(obj => obj.type === 2) : [];
+    const newEnemies = newState.objects ? newState.objects.filter(obj => obj.type === 2) : [];
+
+    // Find enemies that were in old state but not in new state (died)
+    oldEnemies.forEach(oldEnemy => {
+        const stillExists = newEnemies.find(e =>
+            Math.abs(e.position.x - oldEnemy.position.x) < 5 &&
+            Math.abs(e.position.y - oldEnemy.position.y) < 5
+        );
+        if (!stillExists) {
+            // Enemy died - create explosion
+            particleSystem.createExplosion(
+                oldEnemy.position.x,
+                oldEnemy.position.y,
+                '#ff4444',
+                20,
+                100,
+                3
+            );
+        }
+    });
+
+    // Detect projectile hits
+    const oldProjectiles = oldState.objects ? oldState.objects.filter(obj => obj.type === 4) : [];
+    const newProjectiles = newState.objects ? newState.objects.filter(obj => obj.type === 4) : [];
+
+    oldProjectiles.forEach(oldProj => {
+        const stillExists = newProjectiles.find(p =>
+            Math.abs(p.position.x - oldProj.position.x) < 5 &&
+            Math.abs(p.position.y - oldProj.position.y) < 5
+        );
+        if (!stillExists) {
+            // Projectile disappeared - create hit spark
+            particleSystem.createHitSpark(
+                oldProj.position.x,
+                oldProj.position.y,
+                '#ffff00',
+                8
+            );
+        }
+    });
 }
 
 function updateUI() {
     healthSpan.textContent = `Health: ${gameState.playerHealth}`;
     resourcesSpan.textContent = `Resources: ${gameState.playerResources}`;
-    waveSpan.textContent = `Wave: ${gameState.currentWave}`;
+    const maxWaves = gameState.maxWaves || 15;
+    waveSpan.textContent = `Wave: ${gameState.currentWave} / ${maxWaves}`;
 }
 
 function render() {
@@ -221,7 +277,7 @@ function render() {
                 const barWidth = 30;
                 const barHeight = 4;
                 const healthPercent = obj.health / obj.maxHealth;
-                
+
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                 ctx.fillRect(
                     obj.position.x - barWidth/2,
@@ -229,7 +285,7 @@ function render() {
                     barWidth,
                     barHeight
                 );
-                
+
                 ctx.fillStyle = healthPercent > 0.5 ? '#44ff44' : '#ff4444';
                 ctx.fillRect(
                     obj.position.x - barWidth/2,
@@ -237,6 +293,21 @@ function render() {
                     barWidth * healthPercent,
                     barHeight
                 );
+
+                // Draw slow effect indicator
+                if (obj.isSlowed) {
+                    ctx.strokeStyle = '#44aaff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(obj.position.x, obj.position.y, config.radius + 3, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    // Add "ice" symbol or text
+                    ctx.fillStyle = '#44aaff';
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('❄', obj.position.x, obj.position.y - config.radius - 15);
+                }
             } else if (obj.type === 3) {
                 // Tower range indicator
                 ctx.beginPath();
@@ -247,11 +318,57 @@ function render() {
         });
     }
     
+    // Draw particles (on top of everything else)
+    particleSystem.draw(ctx);
+
+    // Draw game over / victory overlays
+    if (gameState.gameState === 'victory') {
+        ctx.fillStyle = 'rgba(0, 100, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#44ff44';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('VICTORY!', canvas.width/2, canvas.height/2 - 40);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '24px Arial';
+        ctx.fillText('You successfully defended your planet!', canvas.width/2, canvas.height/2 + 20);
+        ctx.font = '18px Arial';
+        ctx.fillText(`Survived all ${gameState.currentWave} waves`, canvas.width/2, canvas.height/2 + 50);
+
+        // Victory particles
+        if (Math.random() < 0.3) {
+            particleSystem.createExplosion(
+                Math.random() * canvas.width,
+                Math.random() * canvas.height,
+                ['#44ff44', '#ffff00', '#44aaff'][Math.floor(Math.random() * 3)],
+                10,
+                80,
+                4
+            );
+        }
+    } else if (gameState.gameState === 'gameOver') {
+        ctx.fillStyle = 'rgba(100, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 40);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '24px Arial';
+        ctx.fillText('Your planet has been destroyed!', canvas.width/2, canvas.height/2 + 20);
+        ctx.font = '18px Arial';
+        ctx.fillText(`Survived ${gameState.currentWave} waves`, canvas.width/2, canvas.height/2 + 50);
+    }
+
     // Draw connection status
     if (!isConnected) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
+
         ctx.fillStyle = '#ffffff';
         ctx.font = '24px Arial';
         ctx.textAlign = 'center';
@@ -259,12 +376,20 @@ function render() {
         ctx.font = '16px Arial';
         ctx.fillText('Click "Connect to Server" to start', canvas.width/2, canvas.height/2 + 30);
     }
-    
+
     ctx.textAlign = 'left';
 }
 
 // Start render loop
+let lastTime = performance.now();
 function gameLoop() {
+    const currentTime = performance.now();
+    const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+    lastTime = currentTime;
+
+    // Update particle system
+    particleSystem.update(deltaTime);
+
     render();
     requestAnimationFrame(gameLoop);
 }

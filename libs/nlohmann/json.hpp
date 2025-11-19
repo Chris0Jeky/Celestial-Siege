@@ -118,9 +118,26 @@ public:
         if (std::holds_alternative<int>(m_value)) {
             return std::get<int>(m_value);
         }
+        if (std::holds_alternative<double>(m_value)) {
+            return static_cast<int>(std::get<double>(m_value));
+        }
         throw std::runtime_error("json value is not an int");
     }
-    
+
+    double get_double() const {
+        if (std::holds_alternative<double>(m_value)) {
+            return std::get<double>(m_value);
+        }
+        if (std::holds_alternative<int>(m_value)) {
+            return static_cast<double>(std::get<int>(m_value));
+        }
+        throw std::runtime_error("json value is not a double");
+    }
+
+    bool is_null() const {
+        return std::holds_alternative<std::nullptr_t>(m_value);
+    }
+
     std::string dump(int indent = -1) const {
         std::ostringstream oss;
         dump_internal(oss, indent, 0);

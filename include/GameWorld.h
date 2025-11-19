@@ -16,6 +16,12 @@
 #include <chrono>
 #include <thread>
 
+enum class GameState {
+    Playing,
+    Victory,
+    GameOver
+};
+
 class GameWorld {
 private:
     std::vector<std::unique_ptr<GameObject>> m_objects;
@@ -24,16 +30,20 @@ private:
     double m_waveTimer;
     int m_currentWave;
     bool m_running;
+    GameState m_gameState;
     WebSocketServer m_webSocketServer;
     PhysicsEngine m_physicsEngine;
     CellularAutomata m_cellularAutomata;
     double m_cellularUpdateTimer;
     PathfindingSystem m_pathfinding;
-    
+
 public:
-    GameWorld() 
-        : m_playerHealth(100), m_playerResources(200), 
+    static const int MAX_WAVES = 15;  // Victory condition
+
+    GameWorld()
+        : m_playerHealth(100), m_playerResources(200),
           m_waveTimer(0), m_currentWave(0), m_running(false),
+          m_gameState(GameState::Playing),
           m_cellularAutomata(80, 60, 10.0), m_cellularUpdateTimer(0),
           m_pathfinding(80, 60, 10.0) {}
     

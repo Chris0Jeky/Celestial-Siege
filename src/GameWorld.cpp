@@ -29,33 +29,59 @@ void GameWorld::run() {
     // Start WebSocket server
     m_webSocketServer.run(9002);
     std::cout << "WebSocket server started on port 9002" << std::endl;
-    
+
     auto last_time = std::chrono::high_resolution_clock::now();
     m_running = true;
-    
-    while (m_running && m_playerHealth > 0) {
+
+    while (m_running && m_gameState == GameState::Playing) {
         auto current_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = current_time - last_time;
         double deltaTime = elapsed.count();
         last_time = current_time;
-        
+
         update(deltaTime);
-        
+
+        // Check game over condition
+        if (m_playerHealth <= 0) {
+            m_gameState = GameState::GameOver;
+            std::cout << "\n\n=== GAME OVER ===" << std::endl;
+            std::cout << "You survived " << m_currentWave << " waves!" << std::endl;
+        }
+
+        // Check victory condition
+        if (m_currentWave >= MAX_WAVES) {
+            m_gameState = GameState::Victory;
+            std::cout << "\n\n=== VICTORY ===" << std::endl;
+            std::cout << "You successfully defended your planet!" << std::endl;
+        }
+
         // Broadcast game state to all connected clients
         json state = getStateAsJson();
         m_webSocketServer.broadcast(state.dump());
-        
+
         // Simple console output
-        std::cout << "\rHealth: " << m_playerHealth << " Resources: " << m_playerResources 
-                  << " Wave: " << m_currentWave << " Objects: " << m_objects.size() << std::flush;
-        
+        std::cout << "\rHealth: " << m_playerHealth << " Resources: " << m_playerResources
+                  << " Wave: " << m_currentWave << "/" << MAX_WAVES << " Objects: " << m_objects.size() << std::flush;
+
         std::this_thread::sleep_for(std::chrono::milliseconds(16)); // ~60fps
     }
-    
+
+    // Keep server running for a bit to show final state
+    for (int i = 0; i < 180; i++) { // ~3 seconds
+        json state = getStateAsJson();
+        m_webSocketServer.broadcast(state.dump());
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
+    }
+
     m_webSocketServer.stop();
 }
 
 void GameWorld::update(double deltaTime) {
+    // Don't update if game is over
+    if (m_gameState != GameState::Playing) {
+        return;
+    }
+
     // First, apply physics to all objects (gravity simulation)
     m_physicsEngine.update(m_objects, deltaTime);
     
@@ -140,13 +166,27 @@ void GameWorld::update(double deltaTime) {
 
 void GameWorld::spawnWave() {
     m_currentWave++;
+
+    // Don't spawn more waves after reaching max
+    if (m_currentWave > MAX_WAVES) {
+        return;
+    }
+
     int enemyCount = 3 + m_currentWave * 2; // Increase enemies each wave
-    
+    double enemyHealth = 100.0 + (m_currentWave - 1) * 20.0; // Enemies get tougher
+
     for (int i = 0; i < enemyCount; i++) {
         double angle = (i * 2 * 3.14159) / enemyCount;
         Vec2d spawnPos(400 + cos(angle) * 300, 300 + sin(angle) * 300);
-        spawnEnemy(spawnPos);
+
+        // Create enemy with scaling health
+        auto enemy = std::make_unique<Enemy>(spawnPos, enemyHealth);
+        enemy->setTarget(m_objects[0]->position); // Target player's planet
+        m_objects.push_back(std::move(enemy));
     }
+
+    std::cout << "\n=== Wave " << m_currentWave << " / " << MAX_WAVES << " ===" << std::endl;
+    std::cout << "Enemies: " << enemyCount << " | Enemy Health: " << enemyHealth << std::endl;
 }
 
 void GameWorld::handleCollisions() {
@@ -239,17 +279,27 @@ void GameWorld::spawnProjectile(Vec2d from, Vec2d to, double damage) {
 json GameWorld::getStateAsJson() const {
     json state;
     state["objects"] = json::array();
-    
+
     for (const auto& obj : m_objects) {
         if (obj->alive) {
             state["objects"].push_back(obj->toJson());
         }
     }
-    
+
     state["playerHealth"] = m_playerHealth;
     state["playerResources"] = m_playerResources;
     state["currentWave"] = m_currentWave;
-    
+    state["maxWaves"] = MAX_WAVES;
+
+    // Add game state
+    if (m_gameState == GameState::Victory) {
+        state["gameState"] = "victory";
+    } else if (m_gameState == GameState::GameOver) {
+        state["gameState"] = "gameOver";
+    } else {
+        state["gameState"] = "playing";
+    }
+
     // Add cellular automata grid data
     json gridData;
     gridData["width"] = m_cellularAutomata.getWidth();
@@ -274,22 +324,35 @@ json GameWorld::getStateAsJson() const {
 void GameWorld::handleClientMessage(const std::string& message) {
     try {
         json msg = json::parse(message);
-        
-        // Check if it has parsed flag from our simplified parser
-        if (msg["parsed"].get_bool() == true) {
-            // Extract actual data
-            std::string data = msg["data"].get_string();
-            
-            // Simple string parsing for demonstration
-            if (data.find("build_tower") != std::string::npos) {
-                // Extract position from message (simplified)
-                Vec2d position(400, 300); // Default position
-                if (placeTower(position, 0)) {
-                    std::cout << "\nTower placed at (" << position.x << ", " << position.y << ")" << std::endl;
-                } else {
-                    std::cout << "\nInsufficient resources to place tower" << std::endl;
-                }
+
+        // Handle build_tower action
+        std::string action = msg["action"].get_string();
+        if (action == "build_tower") {
+            // Extract position and tower type
+            double x = msg["position"]["x"].get_double();
+            double y = msg["position"]["y"].get_double();
+            Vec2d pos(x, y);
+
+            // Extract tower type (default to Basic if not specified)
+            int towerType = 0;
+            if (!msg["towerType"].is_null()) {
+                towerType = msg["towerType"].get_int();
             }
+
+            std::cout << "\nAttempting to place tower type " << towerType
+                      << " at (" << pos.x << ", " << pos.y << ")" << std::endl;
+
+            if (placeTower(pos, towerType)) {
+                std::cout << "Tower placed successfully!" << std::endl;
+            } else {
+                std::cout << "Failed to place tower (insufficient resources or invalid location)" << std::endl;
+            }
+        }
+        // Handle tower upgrade action
+        else if (action == "upgrade_tower") {
+            int towerId = msg["towerId"].get_int();
+            // TODO: Implement tower upgrade by ID
+            std::cout << "\nUpgrade request for tower " << towerId << std::endl;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error handling message: " << e.what() << std::endl;
