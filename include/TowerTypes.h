@@ -82,11 +82,12 @@ public:
     void fireAt(GameObject* target, std::vector<std::unique_ptr<GameObject>>& objects) override {
         if (target->type == GameObjectType::Enemy) {
             Enemy* enemy = static_cast<Enemy*>(target);
-            // Apply slow effect (would need to add slow system to Enemy class)
+            // Apply minimal damage
             enemy->takeDamage(damage);
-            // TODO: Implement slow effect
+            // Apply slow effect to reduce enemy speed
+            enemy->applySlow(m_slowFactor, m_slowDuration);
         }
-        
+
         cooldownRemaining = 1.0 / fireRate;
     }
     
