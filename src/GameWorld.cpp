@@ -48,8 +48,11 @@ void GameWorld::run() {
             std::cout << "You survived " << m_currentWave << " waves!" << std::endl;
         }
 
-        // Check victory condition
-        if (m_currentWave >= MAX_WAVES) {
+        // Check victory condition only after clearing final wave
+        bool enemiesRemaining = std::any_of(m_objects.begin(), m_objects.end(), [](const auto& obj) {
+            return obj->type == GameObjectType::Enemy && obj->alive;
+        });
+        if (m_currentWave >= MAX_WAVES && !enemiesRemaining) {
             m_gameState = GameState::Victory;
             std::cout << "\n\n=== VICTORY ===" << std::endl;
             std::cout << "You successfully defended your planet!" << std::endl;

@@ -7,6 +7,8 @@
 #include <memory>
 #include <variant>
 #include <stdexcept>
+#include <functional>
+#include <cctype>
 
 namespace nlohmann {
 
@@ -145,12 +147,140 @@ public:
     }
     
     static json parse(const std::string& str) {
-        // Simplified parser - in real implementation this would be a full JSON parser
-        // For now, just return an empty object
-        json j;
-        j["parsed"] = true;
-        j["data"] = str;
-        return j;
+        size_t index = 0;
+
+        auto skip_ws = [&](void) {
+            while (index < str.size() && std::isspace(static_cast<unsigned char>(str[index]))) {
+                ++index;
+            }
+        };
+
+        std::function<json()> parse_value;
+
+        auto parse_string = [&]() -> std::string {
+            if (str[index] != '"') {
+                throw std::runtime_error("expected string");
+            }
+            ++index; // skip opening quote
+            std::string result;
+            while (index < str.size()) {
+                char c = str[index++];
+                if (c == '"') {
+                    break;
+                }
+                if (c == '\\' && index < str.size()) {
+                    // Handle simple escape sequences
+                    char next = str[index++];
+                    if (next == '"' || next == '\\' || next == '/') result.push_back(next);
+                    else if (next == 'b') result.push_back('\b');
+                    else if (next == 'f') result.push_back('\f');
+                    else if (next == 'n') result.push_back('\n');
+                    else if (next == 'r') result.push_back('\r');
+                    else if (next == 't') result.push_back('\t');
+                } else {
+                    result.push_back(c);
+                }
+            }
+            return result;
+        };
+
+        auto parse_number = [&]() -> json {
+            size_t start = index;
+            if (str[index] == '-' || str[index] == '+') ++index;
+            while (index < str.size() && std::isdigit(static_cast<unsigned char>(str[index]))) ++index;
+            bool is_float = false;
+            if (index < str.size() && str[index] == '.') {
+                is_float = true;
+                ++index;
+                while (index < str.size() && std::isdigit(static_cast<unsigned char>(str[index]))) ++index;
+            }
+            std::string num_str = str.substr(start, index - start);
+            if (is_float) {
+                return json(std::stod(num_str));
+            }
+            return json(std::stoi(num_str));
+        };
+
+        auto parse_array = [&]() -> json {
+            array_t arr;
+            ++index; // skip [
+            skip_ws();
+            if (index < str.size() && str[index] == ']') {
+                ++index;
+                return json(arr);
+            }
+            while (index < str.size()) {
+                arr.push_back(parse_value());
+                skip_ws();
+                if (index < str.size() && str[index] == ',') {
+                    ++index;
+                    skip_ws();
+                    continue;
+                }
+                if (index < str.size() && str[index] == ']') {
+                    ++index;
+                    break;
+                }
+                throw std::runtime_error("invalid array syntax");
+            }
+            return json(arr);
+        };
+
+        auto parse_object = [&]() -> json {
+            object_t obj;
+            ++index; // skip {
+            skip_ws();
+            if (index < str.size() && str[index] == '}') {
+                ++index;
+                return json(obj);
+            }
+            while (index < str.size()) {
+                skip_ws();
+                std::string key = parse_string();
+                skip_ws();
+                if (str[index] != ':') {
+                    throw std::runtime_error("expected : after key");
+                }
+                ++index;
+                skip_ws();
+                obj[key] = parse_value();
+                skip_ws();
+                if (index < str.size() && str[index] == ',') {
+                    ++index;
+                    skip_ws();
+                    continue;
+                }
+                if (index < str.size() && str[index] == '}') {
+                    ++index;
+                    break;
+                }
+                throw std::runtime_error("invalid object syntax");
+            }
+            return json(obj);
+        };
+
+        parse_value = [&]() -> json {
+            skip_ws();
+            if (index >= str.size()) {
+                throw std::runtime_error("unexpected end of input");
+            }
+            char c = str[index];
+            if (c == '"') return json(parse_string());
+            if (c == '{') return parse_object();
+            if (c == '[') return parse_array();
+            if (std::isdigit(static_cast<unsigned char>(c)) || c == '-' || c == '+') return parse_number();
+            if (str.compare(index, 4, "true") == 0) { index += 4; return json(true); }
+            if (str.compare(index, 5, "false") == 0) { index += 5; return json(false); }
+            if (str.compare(index, 4, "null") == 0) { index += 4; return json(nullptr); }
+            throw std::runtime_error("invalid JSON value");
+        };
+
+        json result = parse_value();
+        skip_ws();
+        if (index != str.size()) {
+            throw std::runtime_error("trailing characters in JSON");
+        }
+        return result;
     }
     
 private:
