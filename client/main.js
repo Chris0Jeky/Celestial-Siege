@@ -148,7 +148,6 @@ function showTowerInfo(tower) {
     document.getElementById('towerFireRate').textContent = (tower.fireRate || 0).toFixed(2);
 
     const upgradeCost = tower.upgradeCost || 0;
-    document.getElementById('upgradeCost').textContent = upgradeCost;
 
     // Disable upgrade button if max level or not enough resources
     const canUpgrade = (tower.upgradeLevel || 0) < 3;
@@ -242,6 +241,23 @@ function updateGameState(newState) {
     // Update state
     previousGameState = JSON.parse(JSON.stringify(gameState));
     gameState = newState;
+
+    // Refresh selected tower reference using the latest state
+    if (selectedTower && gameState.objects) {
+        const updatedTower = gameState.objects.find(
+            (obj) => obj.type === 3 && obj.id === selectedTower.id
+        );
+
+        if (updatedTower) {
+            selectedTower = updatedTower;
+            showTowerInfo(updatedTower);
+        } else {
+            selectedTower = null;
+            buildMode = true;
+            towerInfoPanel.classList.add('hidden');
+        }
+    }
+
     updateUI();
 }
 
