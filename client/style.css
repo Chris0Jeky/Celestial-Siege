@@ -115,3 +115,63 @@ button:active {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.tower-info {
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(20, 20, 20, 0.9);
+    border: 2px solid #4a9eff;
+    border-radius: 10px;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.tower-info.hidden {
+    display: none;
+}
+
+.tower-info h3 {
+    margin: 0 0 15px 0;
+    color: #4a9eff;
+    text-align: center;
+}
+
+#towerStats p {
+    margin: 8px 0;
+    color: #ffffff;
+}
+
+#towerStats strong {
+    color: #4a9eff;
+}
+
+.upgrade-btn, .deselect-btn {
+    width: 48%;
+    margin-top: 15px;
+    display: inline-block;
+}
+
+.upgrade-btn {
+    background: #44ff44;
+    color: #000;
+    margin-right: 4%;
+}
+
+.upgrade-btn:hover {
+    background: #33cc33;
+}
+
+.upgrade-btn:disabled {
+    background: #666;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.deselect-btn {
+    background: #ff4444;
+}
+
+.deselect-btn:hover {
+    background: #cc3333;
+}

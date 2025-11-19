@@ -25,6 +25,18 @@
             <button class="tower-btn" data-type="2">Slow Tower ($60)</button>
             <button class="tower-btn" data-type="3">Gravity Tower ($100)</button>
         </div>
+        <div id="towerInfo" class="tower-info hidden">
+            <h3>Selected Tower</h3>
+            <div id="towerStats">
+                <p><strong>Type:</strong> <span id="towerTypeName">-</span></p>
+                <p><strong>Level:</strong> <span id="towerLevel">-</span></p>
+                <p><strong>Damage:</strong> <span id="towerDamage">-</span></p>
+                <p><strong>Range:</strong> <span id="towerRange">-</span></p>
+                <p><strong>Fire Rate:</strong> <span id="towerFireRate">-</span></p>
+            </div>
+            <button id="upgradeBtn" class="upgrade-btn">Upgrade (Cost: <span id="upgradeCost">-</span>)</button>
+            <button id="deselectBtn" class="deselect-btn">Close</button>
+        </div>
     </div>
     <script src="particles.js"></script>
     <script src="mock-server.js"></script>
