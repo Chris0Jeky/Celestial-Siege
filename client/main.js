@@ -8,7 +8,8 @@ let gameState = {
 
 // Track previous game state for detecting changes
 let previousGameState = {
-    objects: []
+    objects: [],
+    playerResources: 200
 };
 
 // Canvas setup
@@ -26,10 +27,26 @@ let isConnected = false;
 let selectedTower = null;
 let buildMode = true; // true = placing towers, false = selecting towers
 
+// Statistics tracking
+let gameStats = {
+    kills: 0,
+    score: 0,
+    wavesCompleted: 0
+};
+
+// Wave announcement state
+let waveAnnouncement = {
+    text: '',
+    lifetime: 0,
+    isBoss: false
+};
+
 // UI elements
 const healthSpan = document.getElementById('health');
 const resourcesSpan = document.getElementById('resources');
 const waveSpan = document.getElementById('wave');
+const killsSpan = document.getElementById('kills');
+const scoreSpan = document.getElementById('score');
 const statusSpan = document.getElementById('status');
 const connectBtn = document.getElementById('connectBtn');
 const towerInfoPanel = document.getElementById('towerInfo');
@@ -257,15 +274,42 @@ function detectGameEvents(oldState, newState) {
             Math.abs(e.position.y - oldEnemy.position.y) < 5
         );
         if (!stillExists) {
-            // Enemy died - create explosion
+            // Enemy died - update stats
+            gameStats.kills++;
+
+            // Score based on enemy type
+            const scoreValues = {
+                0: 10,   // Basic
+                1: 15,   // Fast
+                2: 30,   // Tank
+                3: 200   // Boss
+            };
+            const scoreGain = scoreValues[oldEnemy.enemyType] || 10;
+            gameStats.score += scoreGain;
+
+            // Create explosion with color based on enemy type
+            const enemyConfig = ENEMY_TYPES[oldEnemy.enemyType] || ENEMY_TYPES[0];
+            const explosionSize = oldEnemy.isBoss ? 30 : (enemyConfig.radius * 0.4);
+            const particleCount = oldEnemy.isBoss ? 50 : 20;
+
             particleSystem.createExplosion(
                 oldEnemy.position.x,
                 oldEnemy.position.y,
-                '#ff4444',
-                20,
+                enemyConfig.color,
+                particleCount,
                 100,
-                3
+                explosionSize
             );
+
+            // Show score gain
+            particleSystem.createFloatingText(
+                oldEnemy.position.x,
+                oldEnemy.position.y - 10,
+                `+${scoreGain}`,
+                '#ffd700'
+            );
+
+            updateUI();
         }
     });
 
@@ -288,6 +332,17 @@ function detectGameEvents(oldState, newState) {
             );
         }
     });
+
+    // Detect resource gain
+    if (newState.playerResources > oldState.playerResources) {
+        const resourceGain = newState.playerResources - oldState.playerResources;
+        // Show floating text at center top
+        particleSystem.createFloatingText(
+            400, 50,
+            `+$${resourceGain}`,
+            '#44ff44'
+        );
+    }
 }
 
 function updateUI() {
@@ -295,6 +350,30 @@ function updateUI() {
     resourcesSpan.textContent = `Resources: ${gameState.playerResources}`;
     const maxWaves = gameState.maxWaves || 15;
     waveSpan.textContent = `Wave: ${gameState.currentWave} / ${maxWaves}`;
+    killsSpan.textContent = `Kills: ${gameStats.kills}`;
+    scoreSpan.textContent = `Score: ${gameStats.score}`;
+
+    // Wave completion bonus and announcement
+    if (gameState.currentWave > gameStats.wavesCompleted) {
+        const waveBonus = gameState.currentWave * 50;
+        gameStats.score += waveBonus;
+        gameStats.wavesCompleted = gameState.currentWave;
+
+        // Show wave announcement
+        const isBossWave = (gameState.currentWave % 5 === 0);
+        waveAnnouncement.text = isBossWave
+            ? `⚠️ BOSS WAVE ${gameState.currentWave} ⚠️`
+            : `Wave ${gameState.currentWave}`;
+        waveAnnouncement.lifetime = isBossWave ? 3.0 : 2.0;
+        waveAnnouncement.isBoss = isBossWave;
+
+        // Show wave bonus
+        particleSystem.createFloatingText(
+            400, 100,
+            `Wave ${gameState.currentWave - 1} Complete! +${waveBonus}`,
+            '#4a9eff'
+        );
+    }
 }
 
 function render() {
@@ -383,7 +462,12 @@ function render() {
                 ctx.fill();
                 ctx.shadowBlur = 0;
             }
-            
+
+            // Projectile trails
+            if (obj.type === 4) {
+                particleSystem.createProjectileTrail(obj.position.x, obj.position.y, config.color);
+            }
+
             // Draw additional info for specific types
             if (obj.type === 2 && obj.health !== undefined) {
                 // Enemy health bar
@@ -459,6 +543,36 @@ function render() {
     // Draw particles (on top of everything else)
     particleSystem.draw(ctx);
 
+    // Draw wave announcement
+    if (waveAnnouncement.lifetime > 0) {
+        const opacity = Math.min(1, waveAnnouncement.lifetime / 0.5);
+        ctx.save();
+        ctx.globalAlpha = opacity;
+
+        if (waveAnnouncement.isBoss) {
+            // Boss wave - animated warning
+            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+            ctx.fillStyle = `rgba(255, 136, 0, ${pulse})`;
+            ctx.font = 'bold 56px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 4;
+            ctx.strokeText(waveAnnouncement.text, canvas.width/2, canvas.height/2 - 150);
+            ctx.fillText(waveAnnouncement.text, canvas.width/2, canvas.height/2 - 150);
+        } else {
+            // Normal wave
+            ctx.fillStyle = '#4a9eff';
+            ctx.font = 'bold 42px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(waveAnnouncement.text, canvas.width/2, canvas.height/2 - 150);
+            ctx.fillText(waveAnnouncement.text, canvas.width/2, canvas.height/2 - 150);
+        }
+
+        ctx.restore();
+    }
+
     // Draw game over / victory overlays
     if (gameState.gameState === 'victory') {
         ctx.fillStyle = 'rgba(0, 100, 0, 0.8)';
@@ -527,6 +641,11 @@ function gameLoop() {
 
     // Update particle system
     particleSystem.update(deltaTime);
+
+    // Update wave announcement
+    if (waveAnnouncement.lifetime > 0) {
+        waveAnnouncement.lifetime -= deltaTime;
+    }
 
     render();
     requestAnimationFrame(gameLoop);
