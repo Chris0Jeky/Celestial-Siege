@@ -3,6 +3,7 @@
 #include "GameObject.h"
 #include "Planet.h"
 #include "Enemy.h"
+#include "EnemyTypes.h"
 #include "Tower.h"
 #include "TowerTypes.h"
 #include "Projectile.h"
@@ -55,6 +56,7 @@ public:
     void cleanupDeadObjects();
     
     bool placeTower(Vec2d position, int towerType);
+    bool upgradeTower(int towerId);
     void spawnEnemy(Vec2d position);
     void spawnProjectile(Vec2d from, Vec2d to, double damage);
     

@@ -176,20 +176,69 @@ void GameWorld::spawnWave() {
     }
 
     int enemyCount = 3 + m_currentWave * 2; // Increase enemies each wave
-    double enemyHealth = 100.0 + (m_currentWave - 1) * 20.0; // Enemies get tougher
-
-    for (int i = 0; i < enemyCount; i++) {
-        double angle = (i * 2 * 3.14159) / enemyCount;
-        Vec2d spawnPos(400 + cos(angle) * 300, 300 + sin(angle) * 300);
-
-        // Create enemy with scaling health
-        auto enemy = std::make_unique<Enemy>(spawnPos, enemyHealth);
-        enemy->setTarget(m_objects[0]->position); // Target player's planet
-        m_objects.push_back(std::move(enemy));
-    }
+    double healthMultiplier = 1.0 + (m_currentWave - 1) * 0.2; // Enemies get 20% tougher each wave
+    bool isBossWave = (m_currentWave % 5 == 0); // Boss every 5 waves
 
     std::cout << "\n=== Wave " << m_currentWave << " / " << MAX_WAVES << " ===" << std::endl;
-    std::cout << "Enemies: " << enemyCount << " | Enemy Health: " << enemyHealth << std::endl;
+
+    if (isBossWave) {
+        // Boss wave: spawn fewer enemies but include a boss
+        std::cout << "*** BOSS WAVE ***" << std::endl;
+
+        // Spawn boss at top
+        Vec2d bossPos(400, 50);
+        auto boss = createEnemy(EnemyType::Boss, bossPos, healthMultiplier);
+        boss->setTarget(m_objects[0]->position);
+        m_objects.push_back(std::move(boss));
+
+        // Spawn reduced number of support enemies
+        int supportCount = enemyCount / 2;
+        for (int i = 0; i < supportCount; i++) {
+            double angle = (i * 2 * 3.14159) / supportCount;
+            Vec2d spawnPos(400 + cos(angle) * 300, 300 + sin(angle) * 300);
+
+            // Mix of basic and fast enemies
+            EnemyType type = (i % 2 == 0) ? EnemyType::Basic : EnemyType::Fast;
+            auto enemy = createEnemy(type, spawnPos, healthMultiplier);
+            enemy->setTarget(m_objects[0]->position);
+            m_objects.push_back(std::move(enemy));
+        }
+
+        std::cout << "Boss + " << supportCount << " support enemies" << std::endl;
+    } else {
+        // Normal wave: mix of enemy types
+        for (int i = 0; i < enemyCount; i++) {
+            double angle = (i * 2 * 3.14159) / enemyCount;
+            Vec2d spawnPos(400 + cos(angle) * 300, 300 + sin(angle) * 300);
+
+            // Determine enemy type based on wave progression
+            EnemyType type;
+            int rand = i % 10;  // Simple pseudo-random
+
+            if (m_currentWave < 3) {
+                // Early waves: mostly basic enemies
+                type = (rand < 7) ? EnemyType::Basic : EnemyType::Fast;
+            } else if (m_currentWave < 7) {
+                // Mid waves: introduce tanks
+                if (rand < 5) type = EnemyType::Basic;
+                else if (rand < 8) type = EnemyType::Fast;
+                else type = EnemyType::Tank;
+            } else {
+                // Late waves: balanced mix
+                if (rand < 4) type = EnemyType::Basic;
+                else if (rand < 7) type = EnemyType::Fast;
+                else type = EnemyType::Tank;
+            }
+
+            auto enemy = createEnemy(type, spawnPos, healthMultiplier);
+            enemy->setTarget(m_objects[0]->position);
+            m_objects.push_back(std::move(enemy));
+        }
+
+        std::cout << "Enemies: " << enemyCount << " (mixed types)" << std::endl;
+    }
+
+    std::cout << "Health Multiplier: " << healthMultiplier << "x" << std::endl;
 }
 
 void GameWorld::handleCollisions() {
@@ -264,6 +313,38 @@ bool GameWorld::placeTower(Vec2d position, int towerType) {
         m_pathfinding.updateObstacles(m_objects);
         return true;
     }
+    return false;
+}
+
+bool GameWorld::upgradeTower(int towerId) {
+    // Find the tower by ID
+    for (auto& obj : m_objects) {
+        if (obj->id == towerId && obj->type == GameObjectType::Tower && obj->alive) {
+            Tower* tower = static_cast<Tower*>(obj.get());
+
+            // Check if tower can be upgraded
+            if (!tower->canUpgrade()) {
+                std::cout << "\nTower is already at max level!" << std::endl;
+                return false;
+            }
+
+            // Check if player has enough resources
+            int upgradeCost = tower->getUpgradeCost();
+            if (m_playerResources >= upgradeCost) {
+                m_playerResources -= upgradeCost;
+                tower->upgrade();
+                std::cout << "\nTower upgraded to level " << tower->upgradeLevel
+                          << " for " << upgradeCost << " resources!" << std::endl;
+                return true;
+            } else {
+                std::cout << "\nInsufficient resources to upgrade tower (need "
+                          << upgradeCost << ", have " << m_playerResources << ")" << std::endl;
+                return false;
+            }
+        }
+    }
+
+    std::cout << "\nTower not found (ID: " << towerId << ")" << std::endl;
     return false;
 }
 
@@ -354,8 +435,7 @@ void GameWorld::handleClientMessage(const std::string& message) {
         // Handle tower upgrade action
         else if (action == "upgrade_tower") {
             int towerId = msg["towerId"].get_int();
-            // TODO: Implement tower upgrade by ID
-            std::cout << "\nUpgrade request for tower " << towerId << std::endl;
+            upgradeTower(towerId);
         }
     } catch (const std::exception& e) {
         std::cerr << "Error handling message: " << e.what() << std::endl;

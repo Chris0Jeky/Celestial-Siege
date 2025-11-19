@@ -22,19 +22,34 @@ const particleSystem = new ParticleSystem();
 let ws = null;
 let isConnected = false;
 
+// Tower selection state
+let selectedTower = null;
+let buildMode = true; // true = placing towers, false = selecting towers
+
 // UI elements
 const healthSpan = document.getElementById('health');
 const resourcesSpan = document.getElementById('resources');
 const waveSpan = document.getElementById('wave');
 const statusSpan = document.getElementById('status');
 const connectBtn = document.getElementById('connectBtn');
+const towerInfoPanel = document.getElementById('towerInfo');
+const upgradeBtn = document.getElementById('upgradeBtn');
+const deselectBtn = document.getElementById('deselectBtn');
 
 // Rendering configuration
 const RENDER_CONFIG = {
     1: { color: '#888888', radius: 30, name: 'Planet' },     // Planet
-    2: { color: '#ff4444', radius: 8, name: 'Enemy' },       // Enemy
+    2: { color: '#ff4444', radius: 8, name: 'Enemy' },       // Enemy (default)
     3: { color: '#44ff44', radius: 12, name: 'Tower' },      // Tower
     4: { color: '#ffff00', radius: 3, name: 'Projectile' }   // Projectile
+};
+
+// Enemy type visual config
+const ENEMY_TYPES = {
+    0: { color: '#ff4444', radius: 8, name: 'Basic' },      // Basic - red, normal
+    1: { color: '#44ff44', radius: 6, name: 'Fast' },       // Fast - green, small
+    2: { color: '#8844ff', radius: 12, name: 'Tank' },      // Tank - purple, large
+    3: { color: '#ff8800', radius: 20, name: 'BOSS' }       // Boss - orange, huge
 };
 
 // Tower type colors
@@ -54,7 +69,7 @@ connectBtn.addEventListener('click', () => {
     }
 });
 
-// Tower selection
+// Tower selection for building
 let selectedTowerType = 0;
 const towerButtons = document.querySelectorAll('.tower-btn');
 
@@ -64,25 +79,106 @@ towerButtons.forEach(btn => {
         towerButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedTowerType = parseInt(btn.dataset.type);
+        buildMode = true;
+        selectedTower = null;
+        towerInfoPanel.classList.add('hidden');
     });
 });
+
+// Tower names
+const TOWER_NAMES = {
+    0: 'Basic Tower',
+    1: 'Splash Tower',
+    2: 'Slow Tower',
+    3: 'Gravity Tower'
+};
 
 // Canvas click handler
 canvas.addEventListener('click', (event) => {
     if (!isConnected) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    
-    // Send build tower command with selected type
-    const message = {
-        action: 'build_tower',
-        position: { x: x, y: y },
-        towerType: selectedTowerType
-    };
-    
-    ws.send(JSON.stringify(message));
+
+    // Check if clicking on a tower (for selection)
+    const clickedTower = getTowerAtPosition(x, y);
+
+    if (clickedTower) {
+        // Select tower
+        selectedTower = clickedTower;
+        buildMode = false;
+        showTowerInfo(clickedTower);
+    } else if (buildMode) {
+        // Build new tower
+        const message = {
+            action: 'build_tower',
+            position: { x: x, y: y },
+            towerType: selectedTowerType
+        };
+        ws.send(JSON.stringify(message));
+    }
+});
+
+// Find tower at clicked position
+function getTowerAtPosition(x, y) {
+    if (!gameState.objects) return null;
+
+    const towers = gameState.objects.filter(obj => obj.type === 3);
+    for (const tower of towers) {
+        const dist = Math.sqrt(
+            Math.pow(tower.position.x - x, 2) +
+            Math.pow(tower.position.y - y, 2)
+        );
+        if (dist < 15) { // Click radius
+            return tower;
+        }
+    }
+    return null;
+}
+
+// Show tower info panel
+function showTowerInfo(tower) {
+    const towerTypeName = TOWER_NAMES[tower.towerType] || 'Unknown';
+
+    document.getElementById('towerTypeName').textContent = towerTypeName;
+    document.getElementById('towerLevel').textContent = (tower.upgradeLevel || 0) + 1;
+    document.getElementById('towerDamage').textContent = Math.round(tower.damage || 0);
+    document.getElementById('towerRange').textContent = Math.round(tower.range || 0);
+    document.getElementById('towerFireRate').textContent = (tower.fireRate || 0).toFixed(2);
+
+    const upgradeCost = tower.upgradeCost || 0;
+
+    // Disable upgrade button if max level or not enough resources
+    const canUpgrade = (tower.upgradeLevel || 0) < 3;
+    const hasResources = gameState.playerResources >= upgradeCost;
+    upgradeBtn.disabled = !canUpgrade || !hasResources;
+
+    if (!canUpgrade) {
+        upgradeBtn.textContent = 'Max Level';
+    } else {
+        upgradeBtn.innerHTML = `Upgrade (Cost: <span id="upgradeCost">${upgradeCost}</span>)`;
+    }
+
+    towerInfoPanel.classList.remove('hidden');
+}
+
+// Upgrade button handler
+upgradeBtn.addEventListener('click', () => {
+    if (selectedTower && ws) {
+        const message = {
+            action: 'upgrade_tower',
+            towerId: selectedTower.id
+        };
+        ws.send(JSON.stringify(message));
+    }
+});
+
+// Deselect button handler
+deselectBtn.addEventListener('click', () => {
+    selectedTower = null;
+    buildMode = true;
+    towerInfoPanel.classList.add('hidden');
 });
 
 function connectToServer() {
@@ -145,6 +241,23 @@ function updateGameState(newState) {
     // Update state
     previousGameState = JSON.parse(JSON.stringify(gameState));
     gameState = newState;
+
+    // Refresh selected tower reference using the latest state
+    if (selectedTower && gameState.objects) {
+        const updatedTower = gameState.objects.find(
+            (obj) => obj.type === 3 && obj.id === selectedTower.id
+        );
+
+        if (updatedTower) {
+            selectedTower = updatedTower;
+            showTowerInfo(updatedTower);
+        } else {
+            selectedTower = null;
+            buildMode = true;
+            towerInfoPanel.classList.add('hidden');
+        }
+    }
+
     updateUI();
 }
 
@@ -256,20 +369,36 @@ function render() {
     // Draw game objects
     if (gameState.objects) {
         gameState.objects.forEach(obj => {
-            const config = RENDER_CONFIG[obj.type];
+            let config = RENDER_CONFIG[obj.type];
             if (!config) return;
-            
+
+            // Override with enemy-specific config if available
+            if (obj.type === 2 && obj.enemyType !== undefined) {
+                const enemyConfig = ENEMY_TYPES[obj.enemyType];
+                if (enemyConfig) {
+                    config = enemyConfig;
+                }
+            }
+
             ctx.beginPath();
             ctx.arc(obj.position.x, obj.position.y, config.radius, 0, Math.PI * 2);
-            
+
             // Use tower-specific colors
             if (obj.type === 3 && obj.towerType !== undefined) {
                 ctx.fillStyle = TOWER_COLORS[obj.towerType] || config.color;
             } else {
                 ctx.fillStyle = config.color;
             }
-            
+
             ctx.fill();
+
+            // Boss glow effect
+            if (obj.isBoss) {
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = config.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
             
             // Draw additional info for specific types
             if (obj.type === 2 && obj.health !== undefined) {
@@ -314,6 +443,31 @@ function render() {
                 ctx.arc(obj.position.x, obj.position.y, obj.range || 100, 0, Math.PI * 2);
                 ctx.strokeStyle = 'rgba(68, 255, 68, 0.2)';
                 ctx.stroke();
+
+                // Selected tower highlight
+                if (selectedTower && selectedTower.id === obj.id) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(obj.position.x, obj.position.y, config.radius + 5, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+
+                    // Brighter range indicator for selected tower
+                    ctx.beginPath();
+                    ctx.arc(obj.position.x, obj.position.y, obj.range || 100, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
+                    ctx.stroke();
+                }
+
+                // Upgrade level indicators
+                const level = (obj.upgradeLevel || 0) + 1;
+                if (level > 1) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`★${level}`, obj.position.x, obj.position.y + config.radius + 12);
+                }
             }
         });
     }
