@@ -41,6 +41,36 @@ let waveAnnouncement = {
     isBoss: false
 };
 
+// Reset client-side state to avoid stale data when reconnecting
+function resetClientState() {
+    gameState = {
+        objects: [],
+        playerHealth: 100,
+        playerResources: 200,
+        currentWave: 0
+    };
+    previousGameState = {
+        objects: [],
+        playerResources: 200
+    };
+    gameStats = {
+        kills: 0,
+        score: 0,
+        wavesCompleted: 0
+    };
+    waveAnnouncement = {
+        text: '',
+        lifetime: 0,
+        isBoss: false
+    };
+
+    particleSystem.clear();
+    selectedTower = null;
+    buildMode = true;
+    towerInfoPanel.classList.add('hidden');
+    updateUI();
+}
+
 // UI elements
 const healthSpan = document.getElementById('health');
 const resourcesSpan = document.getElementById('resources');
@@ -202,8 +232,9 @@ deselectBtn.addEventListener('click', () => {
 function connectToServer() {
     try {
         ws = new WebSocket('ws://localhost:9002');
-        
+
         ws.onopen = () => {
+            resetClientState();
             isConnected = true;
             statusSpan.textContent = 'Connected';
             statusSpan.className = 'connected';
@@ -250,6 +281,8 @@ function disconnectFromServer() {
     if (ws) {
         ws.close();
     }
+
+    resetClientState();
 }
 
 function updateGameState(newState) {
