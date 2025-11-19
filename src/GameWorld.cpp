@@ -406,38 +406,61 @@ void GameWorld::handleClientMessage(const std::string& message) {
     try {
         json msg = json::parse(message);
 
+        std::string action;
+        try {
+            action = msg["action"].get_string();
+        } catch (const std::exception& e) {
+            std::cerr << "Ignoring client message with invalid action: " << e.what() << std::endl;
+            return;
+        }
+
         // Handle build_tower action
-        std::string action = msg["action"].get_string();
         if (action == "build_tower") {
-            // Extract position and tower type
-            double x = msg["position"]["x"].get_double();
-            double y = msg["position"]["y"].get_double();
-            Vec2d pos(x, y);
+            try {
+                double x = msg["position"]["x"].get_double();
+                double y = msg["position"]["y"].get_double();
+                Vec2d pos(x, y);
 
-            // Extract tower type (default to Basic if not specified)
-            int towerType = 0;
-            if (!msg["towerType"].is_null()) {
-                towerType = msg["towerType"].get_int();
-            }
+                // Extract tower type (default to Basic if not specified)
+                int towerType = 0;
+                try {
+                    towerType = msg["towerType"].get_int();
+                } catch (const std::exception&) {
+                    // Keep default when missing or invalid
+                }
 
-            std::cout << "\nAttempting to place tower type " << towerType
-                      << " at (" << pos.x << ", " << pos.y << ")" << std::endl;
+                std::cout << "\nAttempting to place tower type " << towerType
+                          << " at (" << pos.x << ", " << pos.y << ")" << std::endl;
 
-            if (placeTower(pos, towerType)) {
-                std::cout << "Tower placed successfully!" << std::endl;
-            } else {
-                std::cout << "Failed to place tower (insufficient resources or invalid location)" << std::endl;
+                if (placeTower(pos, towerType)) {
+                    std::cout << "Tower placed successfully!" << std::endl;
+                } else {
+                    std::cout << "Failed to place tower (insufficient resources or invalid location)" << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid build_tower message: " << e.what() << std::endl;
+                return;
             }
         }
         // Handle tower upgrade action
         else if (action == "upgrade_tower") {
-            int towerId = msg["towerId"].get_int();
-            upgradeTower(towerId);
+            try {
+                int towerId = msg["towerId"].get_int();
+                upgradeTower(towerId);
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid upgrade_tower message: " << e.what() << std::endl;
+                return;
+            }
         }
         // Handle special abilities
         else if (action == "special_ability") {
-            std::string abilityType = msg["abilityType"].get_string();
-            activateSpecialAbility(abilityType);
+            try {
+                std::string abilityType = msg["abilityType"].get_string();
+                activateSpecialAbility(abilityType);
+            } catch (const std::exception& e) {
+                std::cerr << "Invalid special_ability message: " << e.what() << std::endl;
+                return;
+            }
         }
     } catch (const std::exception& e) {
         std::cerr << "Error handling message: " << e.what() << std::endl;
