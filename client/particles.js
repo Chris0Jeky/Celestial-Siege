@@ -34,8 +34,9 @@ class Particle {
 class ParticleSystem {
     constructor() {
         this.particles = [];
+        this.floatingTexts = []; // For damage numbers, resource gains
     }
-    
+
     // Explosion effect
     createExplosion(x, y, color = '#ff4444', count = 30, speed = 150, size = 4) {
         for (let i = 0; i < count; i++) {
@@ -47,7 +48,7 @@ class ParticleSystem {
             this.particles.push(new Particle(x, y, vx, vy, color, particleSize, 1.0));
         }
     }
-    
+
     // Hit sparks effect
     createHitSpark(x, y, color = '#ffff00', count = 5) {
         for (let i = 0; i < count; i++) {
@@ -58,14 +59,14 @@ class ParticleSystem {
             this.particles.push(new Particle(x, y, vx, vy, color, 2, 0.3));
         }
     }
-    
+
     // Engine trail effect
     createEngineTrail(x, y, direction, color = '#4488ff') {
         const vx = -Math.cos(direction) * 30 + (Math.random() - 0.5) * 20;
         const vy = -Math.sin(direction) * 30 + (Math.random() - 0.5) * 20;
         this.particles.push(new Particle(x, y, vx, vy, color, 3, 0.5));
     }
-    
+
     // Tower firing effect
     createMuzzleFlash(x, y, direction, color = '#44ff44') {
         for (let i = 0; i < 3; i++) {
@@ -77,7 +78,25 @@ class ParticleSystem {
             this.particles.push(new Particle(x, y, vx, vy, color, 3, 0.2));
         }
     }
-    
+
+    // Projectile trail effect
+    createProjectileTrail(x, y, color = '#ffff00') {
+        this.particles.push(new Particle(x, y, 0, 0, color, 2, 0.2));
+    }
+
+    // Floating text for damage/resources
+    createFloatingText(x, y, text, color = '#ffff00') {
+        this.floatingTexts.push({
+            x: x,
+            y: y,
+            text: text,
+            color: color,
+            lifetime: 1.5,
+            maxLifetime: 1.5,
+            vy: -30 // Float upward
+        });
+    }
+
     update(deltaTime) {
         // Update all particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -86,15 +105,43 @@ class ParticleSystem {
                 this.particles.splice(i, 1);
             }
         }
+
+        // Update floating texts
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const text = this.floatingTexts[i];
+            text.lifetime -= deltaTime;
+            text.y += text.vy * deltaTime;
+            text.vy *= 0.95; // Decelerate
+
+            if (text.lifetime <= 0) {
+                this.floatingTexts.splice(i, 1);
+            }
+        }
     }
-    
+
     draw(ctx) {
         // Draw all particles
         this.particles.forEach(particle => particle.draw(ctx));
+
+        // Draw floating texts
+        this.floatingTexts.forEach(text => {
+            const opacity = text.lifetime / text.maxLifetime;
+            ctx.save();
+            ctx.globalAlpha = opacity;
+            ctx.fillStyle = text.color;
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(text.text, text.x, text.y);
+            ctx.fillText(text.text, text.x, text.y);
+            ctx.restore();
+        });
     }
-    
+
     clear() {
         this.particles = [];
+        this.floatingTexts = [];
     }
 }
 
